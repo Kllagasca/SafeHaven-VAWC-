@@ -1,6 +1,7 @@
 <?php
 require '../config/function.php';
-
+include('../config/db_connect.php');       // XAMPP MySQLi connection ($conn)
+include('../config/supabase_connect.php'); // Supabase PDO connection ($pdo)
 
 
 
@@ -12,45 +13,53 @@ if (isset($_POST['saveUser'])) {
     $is_ban = validate($_POST['is_ban']) == true ? 1 : 0;
     $role = validate($_POST['role']);
 
-
     // Check if all required fields are filled
     if ($fname != '' && $lname != '' && $email != '' && $password != '') {
         try {
-            // Hash the password before storing it
+            // ✅ Hash password before saving
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-
-            // Prepare the SQL statement with placeholders
+            // ✅ 1. Save to Supabase (main remote DB)
             $query = "INSERT INTO users (fname, lname, email, password, is_ban, role)
                       VALUES (:fname, :lname, :email, :password, :is_ban, :role)";
            
-            // Prepare the statement
             $stmt = $pdo->prepare($query);
-           
-            // Bind parameters to the placeholders
             $stmt->bindParam(':fname', $fname, PDO::PARAM_STR);
             $stmt->bindParam(':lname', $lname, PDO::PARAM_STR);
             $stmt->bindParam(':email', $email, PDO::PARAM_STR);
-            $stmt->bindParam(':password', $hashedPassword, PDO::PARAM_STR); // Use hashed password
+            $stmt->bindParam(':password', $hashedPassword, PDO::PARAM_STR);
             $stmt->bindParam(':is_ban', $is_ban, PDO::PARAM_INT);
             $stmt->bindParam(':role', $role, PDO::PARAM_STR);
+            $stmt->execute();
 
+            // ✅ 2. Save to Localhost (XAMPP MySQL)
+            include('../config/db_connect.php'); // make sure this file defines $conn
 
-            // Execute the statement
-            if ($stmt->execute()) {
-                redirect('users.php', 'Admin/Focal Person/Researcher Added Successfully');
-            } else {
-                redirect('user-create.php', 'Something went wrong');
-            }
+            $local_sql = "INSERT INTO users (fname, lname, email, password, is_ban, role)
+                          VALUES (?, ?, ?, ?, ?, ?)";
+            $local_stmt = mysqli_prepare($conn, $local_sql);
+            mysqli_stmt_bind_param($local_stmt, "ssssss",
+                $fname, $lname, $email, $hashedPassword, $is_ban, $role
+            );
+            mysqli_stmt_execute($local_stmt);
+
+            // ✅ Redirect success
+            redirect('users.php', 'Admin/Focal Person/Researcher Added Successfully');
+
         } catch (PDOException $e) {
-            // Handle PDO exception
-            error_log("Error adding user: " . $e->getMessage()); // Log the error
+            // Handle Supabase errors
+            error_log("Supabase DB Error: " . $e->getMessage());
             redirect('user-create.php', 'Error: ' . $e->getMessage());
+        } catch (mysqli_sql_exception $ex) {
+            // Handle Local DB errors
+            error_log("Localhost DB Error: " . $ex->getMessage());
+            redirect('user-create.php', status: 'Local DB Error: ' . $ex->getMessage());
         }
     } else {
         redirect('user-create.php', 'Please fill all the input fields');
     }
 }
+
 
 
 
@@ -64,19 +73,16 @@ if (isset($_POST['updateUser'])) {
     $role = validate($_POST['role']);
     $userId = validate($_POST['userId']);
 
-
     // Retrieve user data by ID
     $user = getById('users', $userId);
-
 
     if ($user['status'] != 200) {
         redirect('user-edit.php?id=' . $userId, 'No Search Id Found');
     }
 
-
     if ($fname != '' || $lname != '' || $email != '') {
         try {
-            // Prepare base query
+            // ✅ Base query for Supabase (PDO)
             $query = "UPDATE users SET  
                 fname = :fname,
                 lname = :lname,
@@ -84,22 +90,17 @@ if (isset($_POST['updateUser'])) {
                 is_ban = :is_ban,
                 role = :role";
 
-
-            // Check if the password field was changed
-            if (!empty($password) && $password !== '********') {
+            // If password is changed, include it
+            $passwordChanged = (!empty($password) && $password !== '********');
+            if ($passwordChanged) {
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 $query .= ", password = :password";
             }
 
-
             $query .= " WHERE id = :userId";
 
-
-            // Prepare the statement
+            // Prepare Supabase statement
             $stmt = $pdo->prepare($query);
-
-
-            // Bind common parameters
             $stmt->bindParam(':fname', $fname, PDO::PARAM_STR);
             $stmt->bindParam(':lname', $lname, PDO::PARAM_STR);
             $stmt->bindParam(':email', $email, PDO::PARAM_STR);
@@ -107,21 +108,54 @@ if (isset($_POST['updateUser'])) {
             $stmt->bindParam(':role', $role, PDO::PARAM_STR);
             $stmt->bindParam(':userId', $userId, PDO::PARAM_INT);
 
-
-            // Bind password if provided
-            if (!empty($password) && $password !== '********') {
+            if ($passwordChanged) {
                 $stmt->bindParam(':password', $hashedPassword, PDO::PARAM_STR);
             }
 
+            // ✅ Execute Supabase update
+            $stmt->execute();
 
-            // Execute the statement
-            if ($stmt->execute()) {
-                redirect('users.php', 'Admin/Focal Person/Researcher Updated Successfully');
+            // ✅ Update Localhost MySQL (XAMPP)
+            include('../config/db_connect.php'); // ensures $conn is available
+
+            if ($passwordChanged) {
+                // With password
+                $local_sql = "UPDATE users SET 
+                                fname = ?, 
+                                lname = ?, 
+                                email = ?, 
+                                password = ?, 
+                                is_ban = ?, 
+                                role = ?
+                              WHERE id = ?";
+                $local_stmt = mysqli_prepare($conn, $local_sql);
+                mysqli_stmt_bind_param($local_stmt, "ssssisi",
+                    $fname, $lname, $email, $hashedPassword, $is_ban, $role, $userId
+                );
             } else {
-                redirect('user-edit.php', 'Something went wrong');
+                // Without password change
+                $local_sql = "UPDATE users SET 
+                                fname = ?, 
+                                lname = ?, 
+                                email = ?, 
+                                is_ban = ?, 
+                                role = ?
+                              WHERE id = ?";
+                $local_stmt = mysqli_prepare($conn, $local_sql);
+                mysqli_stmt_bind_param($local_stmt, "sssisi",
+                    $fname, $lname, $email, $is_ban, $role, $userId
+                );
             }
+
+            mysqli_stmt_execute($local_stmt);
+
+            // ✅ Redirect on success
+            redirect('users.php', 'Admin/Focal Person/Researcher Updated Successfully');
+
         } catch (PDOException $e) {
-            redirect('user-edit.php', 'Error: ' . $e->getMessage());
+            redirect('user-edit.php', 'Supabase Error: ' . $e->getMessage());
+        } catch (mysqli_sql_exception $ex) {
+            redirect('user-edit.php', 'Local DB Error: ' . $ex->getMessage());
         }
     } else {
         redirect('user-edit.php', 'Please fill all the input fields');
@@ -129,11 +163,12 @@ if (isset($_POST['updateUser'])) {
 }
 
 
+
 // Reset password for a user (generate a new random password and show it once)
 if (isset($_POST['resetPassword'])) {
     $userId = validate($_POST['userId']);
 
-    // generate a secure random password
+    // Generate a secure random password
     $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';
     $newPass = '';
     $max = strlen($chars) - 1;
@@ -143,21 +178,31 @@ if (isset($_POST['resetPassword'])) {
 
     $hashed = password_hash($newPass, PASSWORD_DEFAULT);
 
-    try {
-        $query = "UPDATE users SET password = :password WHERE id = :id";
-        $stmt = $pdo->prepare($query);
-        $stmt->execute([':password' => $hashed, ':id' => $userId]);
+    // Update password in local MySQL database
+    $query = "UPDATE users SET password = ? WHERE id = ?";
+    $stmt = mysqli_prepare($conn, $query);
 
-        // Store the plaintext temporary password in session to show once on the edit page
-        $_SESSION['temp_password'] = $newPass;
-        $_SESSION['temp_password_user'] = $userId;
+    if ($stmt) {
+        mysqli_stmt_bind_param($stmt, "si", $hashed, $userId);
+        $execute = mysqli_stmt_execute($stmt);
 
-        // Redirect back to the edit page so admin can see/copy the temporary password once
-        redirect('user-edit.php?id=' . $userId, 'Password reset. The temporary password is shown on the edit page.');
-    } catch (PDOException $e) {
-        redirect('user-edit.php?id=' . $userId, 'Error resetting password: ' . $e->getMessage());
+        if ($execute) {
+            // Store the plaintext temporary password in session to show once
+            $_SESSION['temp_password'] = $newPass;
+            $_SESSION['temp_password_user'] = $userId;
+
+            // Redirect back to the edit page so admin can see/copy the temporary password once
+            redirect('user-edit.php?id=' . $userId, 'Password reset. The temporary password is shown on the edit page.');
+        } else {
+            redirect('user-edit.php?id=' . $userId, 'Error resetting password: ' . mysqli_stmt_error($stmt));
+        }
+
+        mysqli_stmt_close($stmt);
+    } else {
+        redirect('user-edit.php?id=' . $userId, 'Error preparing statement: ' . mysqli_error($conn));
     }
 }
+
 
 
 
@@ -920,8 +965,7 @@ if (isset($_POST['updateNews'])) {
 
 
 
-include('../config/db_connect.php');       // XAMPP MySQLi connection ($conn)
-include('../config/supabase_connect.php'); // Supabase PDO connection ($pdo)
+
 
 if (isset($_POST['saveCase'])) {
 
@@ -1213,4 +1257,3 @@ if (isset($_POST['updateCase'])) {
         redirect('cases.php', 'Error: ' . $e->getMessage());
     }
 }
-

@@ -2,6 +2,7 @@
 // Admin-only page to generate focal person accounts (email + password)
 include('authentication.php'); // ensures $pdo and session/auth checks
 require_once '../config/function.php';
+include('../config/db_connect.php'); // ✅ Localhost MySQL connection ($conn)
 
 // Helpers
 function randomString($length = 8) {
@@ -29,81 +30,90 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     $count = isset($_POST['count']) ? (int) $_POST['count'] : 1;
-    // Get barangay from form and build a domain from it
     $barangay = isset($_POST['barangay']) ? trim($_POST['barangay']) : '';
     if ($barangay === '') {
         $errors[] = 'Barangay is required.';
     }
 
-    // Get optional date and contact person
     $date = isset($_POST['date']) && trim($_POST['date']) !== '' ? trim($_POST['date']) : date('Y-m-d');
     $contact_person = isset($_POST['contact_person']) ? trim($_POST['contact_person']) : '';
 
-    // create a safe slug for the barangay to use as domain prefix
     $slug = preg_replace('/[^a-z0-9\-]/', '', strtolower(str_replace(' ', '-', $barangay)));
     if ($slug === '') $slug = 'barangay';
     $domain = $slug . '.example.com';
     if ($count < 1) $count = 1;
-    if ($count > 100) $count = 100; // limit to 100 at a time
+    if ($count > 100) $count = 100;
 
     if (empty($errors)) {
         for ($i = 0; $i < $count; $i++) {
-        // build a unique email
-        $unique = false;
-        $attempts = 0;
-        do {
-            $local = 'fperson' . randomString(4) . rand(10,99);
-            $email = $local . '@' . $domain;
-            $check = $pdo->prepare('SELECT COUNT(*) FROM users WHERE email = :email');
-            $check->execute([':email' => $email]);
-            $exists = (int) $check->fetchColumn();
-            $attempts++;
-            if ($exists === 0) $unique = true;
-        } while (!$unique && $attempts < 10);
+            // Generate unique email (check Supabase)
+            $unique = false;
+            $attempts = 0;
+            do {
+                $local = 'fperson' . randomString(4) . rand(10, 99);
+                $email = $local . '@' . $domain;
+                $check = $pdo->prepare('SELECT COUNT(*) FROM users WHERE email = :email');
+                $check->execute([':email' => $email]);
+                $exists = (int) $check->fetchColumn();
+                $attempts++;
+                if ($exists === 0) $unique = true;
+            } while (!$unique && $attempts < 10);
 
-        if (!$unique) {
-            $errors[] = 'Could not generate a unique email after multiple attempts.';
-            continue;
-        }
+            if (!$unique) {
+                $errors[] = 'Could not generate a unique email after multiple attempts.';
+                continue;
+            }
 
-        // generate password
-        $plain = generatePassword(10);
-        $hashed = password_hash($plain, PASSWORD_DEFAULT);
+            // Password
+            $plain = generatePassword(10);
+            $hashed = password_hash($plain, PASSWORD_DEFAULT);
 
-    // Use specified names for focal person accounts
-    // First name should be "FocalPerson" (as requested) and last name is the barangay
-    $fname = 'FocalPerson';
-    $lname = $barangay;
-        $role = 'fperson';
-        $is_ban = 0;
+            $fname = 'FocalPerson';
+            $lname = $barangay;
+            $role = 'fperson';
+            $is_ban = 0;
 
-        try {
-            $query = "INSERT INTO users (fname, lname, email, password, role, is_ban) VALUES (:fname, :lname, :email, :password, :role, :is_ban)";
-            $stmt = $pdo->prepare($query);
-            $stmt->execute([
-                ':fname' => $fname,
-                ':lname' => $lname,
-                ':email' => $email,
-                ':password' => $hashed,
-                ':role' => $role,
-                ':is_ban' => $is_ban,
-            ]);
+            try {
+                // ✅ 1. Insert into Supabase (main DB using $pdo)
+                $query = "INSERT INTO users (fname, lname, email, password, role, is_ban)
+                          VALUES (:fname, :lname, :email, :password, :role, :is_ban)";
+                $stmt = $pdo->prepare($query);
+                $stmt->execute([
+                    ':fname' => $fname,
+                    ':lname' => $lname,
+                    ':email' => $email,
+                    ':password' => $hashed,
+                    ':role' => $role,
+                    ':is_ban' => $is_ban,
+                ]);
 
-            $generated[] = [
-                'email' => $email,
-                'password' => $plain,
-                'barangay' => $barangay,
-                'date' => $date,
-                'contact_person' => $contact_person
-            ];
-        } catch (PDOException $e) {
-            $errors[] = 'DB error: ' . $e->getMessage();
-        }
+                // ✅ 2. Also insert into Localhost MySQL (XAMPP)
+                $local_sql = "INSERT INTO users (fname, lname, email, password, role, is_ban)
+                              VALUES (?, ?, ?, ?, ?, ?)";
+                $local_stmt = mysqli_prepare($conn, $local_sql);
+                mysqli_stmt_bind_param($local_stmt, "sssssi",
+                    $fname, $lname, $email, $hashed, $role, $is_ban
+                );
+                mysqli_stmt_execute($local_stmt);
+
+                // Track generated
+                $generated[] = [
+                    'email' => $email,
+                    'password' => $plain,
+                    'barangay' => $barangay,
+                    'date' => $date,
+                    'contact_person' => $contact_person
+                ];
+            } catch (PDOException $e) {
+                $errors[] = 'DB error: ' . $e->getMessage();
+            } catch (mysqli_sql_exception $ex) {
+                $errors[] = 'Local DB error: ' . $ex->getMessage();
+            }
         }
     }
 }
-
 ?>
+
 <?php include('includes/header.php'); ?>
 
 <div class="row">
@@ -124,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                             <input type="number" name="count" class="form-control" value="1" min="1" max="100">
                         </div>
                         <div class="col-md-4">
-                            <label>Barangay (used as last name and in email account):</label>
+                            <label>Barangay:</label>
                             <input type="text" name="barangay" class="form-control" placeholder="e.g., San Isidro" required>
                         </div>
                         <div class="col-md-3">
@@ -136,11 +146,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                             <input type="text" name="contact_person" class="form-control" placeholder="e.g., Juan Dela Cruz">
                         </div>
                     </div>
-                        <div class="row mt-3">
-                            <div class="col-12">
-                                <button type="submit" name="generate" class="btn btn-primary float-end">Generate</button>
-                            </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <button type="submit" name="generate" class="btn btn-primary float-end">Generate</button>
                         </div>
+                    </div>
                 </form>
 
                 <hr/>
@@ -171,9 +181,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                             <?php foreach ($generated as $g): ?>
                                 <tr>
                                     <td><?= htmlspecialchars($g['email']); ?></td>
-                                    <td><?= htmlspecialchars($g['barangay'] ?? $barangay); ?></td>
-                                    <td><?= htmlspecialchars($g['date'] ?? ''); ?></td>
-                                    <td><?= htmlspecialchars($g['contact_person'] ?? ''); ?></td>
+                                    <td><?= htmlspecialchars($g['barangay']); ?></td>
+                                    <td><?= htmlspecialchars($g['date']); ?></td>
+                                    <td><?= htmlspecialchars($g['contact_person']); ?></td>
                                     <td><code><?= htmlspecialchars($g['password']); ?></code></td>
                                 </tr>
                             <?php endforeach; ?>

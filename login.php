@@ -85,28 +85,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('login.php', 'All fields are required.');
         }
     } elseif ($_POST['action'] === 'register') {
-        // Handle Registration
-        $fname = trim($_POST['fname']);
-        $lname = trim($_POST['lname']);
-        // Default role for new registrations is 'user' (regular user)
-        $role = 'user';
+    // Handle Registration
+    $fname = trim($_POST['fname']);
+    $lname = trim($_POST['lname']);
+    $email = trim($_POST['email']);
+    $password = trim($_POST['password']);
+    $role = 'user'; // Default role
 
-        if (!empty($fname) && !empty($lname) && !empty($email) && !empty($password)) {
+    if (!empty($fname) && !empty($lname) && !empty($email) && !empty($password)) {
 
-            // Check if email is already registered
+        // 🔹 Step 1: Include both database connections
+        include 'config/db_connect.php';         // Local (MySQL)
+        include 'config/supabase_connect.php';   // Online (PostgreSQL)
+
+        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+
+        try {
+            // 🔹 Step 2: Check email in Supabase (main)
             $check_email_query = "SELECT * FROM users WHERE email = :email";
-            $stmt = $pdo->prepare($check_email_query);
-            $stmt->execute(['email' => $email]);
+            $check_stmt = $pdo->prepare($check_email_query);
+            $check_stmt->execute(['email' => $email]);
 
-            if ($stmt->rowCount() > 0) {
+            if ($check_stmt->rowCount() > 0) {
                 redirect('login.php', 'Email is already registered.');
             } else {
-                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-
-                // Insert user into database
-                $insert_user_query = "INSERT INTO users (fname, lname, email, password, role) VALUES (:fname, :lname, :email, :password, :role)";
-                $stmt = $pdo->prepare($insert_user_query);
-                $stmt->execute([
+                // 🔹 Step 3: Insert into Supabase
+                $insert_supabase = "INSERT INTO users (fname, lname, email, password, role) 
+                                    VALUES (:fname, :lname, :email, :password, :role)";
+                $stmt_supabase = $pdo->prepare($insert_supabase);
+                $stmt_supabase->execute([
                     'fname' => $fname,
                     'lname' => $lname,
                     'email' => $email,
@@ -114,13 +121,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'role' => $role,
                 ]);
 
-                // Add a registration notification for the admin
-                $userId = $pdo->lastInsertId(); // Get the ID of the newly created user
+                // 🔹 Step 4: Insert into Local MySQL
+                if ($conn) {
+                    $stmt_local = $conn->prepare("INSERT INTO users (fname, lname, email, password, role) VALUES (?, ?, ?, ?, ?)");
+                    $stmt_local->bind_param("sssss", $fname, $lname, $email, $hashed_password, $role);
+                    $stmt_local->execute();
+                }
+
+                // 🔹 Step 5: Create notification (Supabase only)
+                $userId = $pdo->lastInsertId();
                 $event = 'registration';
                 $message = "New user {$fname} {$lname} registered as {$role}.";
 
-                // Updated query to match the parameters being passed
-                $insert_notification_query = "INSERT INTO notifications (user_id, event, message) VALUES (:user_id, :event, :message)";
+                $insert_notification_query = "INSERT INTO notifications (user_id, event, message) 
+                                              VALUES (:user_id, :event, :message)";
                 $notification_stmt = $pdo->prepare($insert_notification_query);
                 $notification_stmt->execute([
                     'user_id' => $userId,
@@ -128,13 +142,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'message' => $message,
                 ]);
 
-                // After registration, if next exists, forward user to login with next preserved
+                // 🔹 Step 6: Redirect
                 $loginRedirect = 'login.php';
                 if (!empty($next)) {
                     $loginRedirect .= '?next=' . urlencode($next);
                 }
+
                 redirect($loginRedirect, 'Registration successful! Please log in.');
             }
+        } catch (PDOException $e) {
+            redirect('register.php', 'Error: ' . $e->getMessage());
+        } catch (mysqli_sql_exception $e) {
+            redirect('register.php', 'Local save error: ' . $e->getMessage());
+        }
         } else {
                 redirect('login.php', 'All fields are required.');
         }
