@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contact Us</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <link rel="apple-touch-icon" sizes="76x76" href="../assets/img/logo.png">
+    <link rel="icon" type="image/png" href="assets/img/logo.png">
+    <link rel="shortcut icon" href="assets/img/logo.png" type="image/png">
     <style>
          body {
             background: linear-gradient(to right, #ff4de2, #9953ed);

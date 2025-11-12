@@ -15,7 +15,7 @@ include('authentication.php');
     <link rel="shortcut icon" href="../assets/img/logo.png" type="image/png">
     <meta name="theme-color" content="#7c2aa6">
     <title>
-        Gender and Development Online Database
+        SafeHaven - <?php echo htmlspecialchars($pageTitle ?? 'Focal Person'); ?>
     </title>
 
     <link href="https://fonts.googleapis.com/css?family=Inter:300,400,500,600,700,800" rel="stylesheet" />

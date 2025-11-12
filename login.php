@@ -1,6 +1,5 @@
 <?php
 require_once 'config/function.php';
-include 'config/supabase_connect.php';
 $pageTitle = "Login";
  alertmessage();
 try {
@@ -95,8 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($fname) && !empty($lname) && !empty($email) && !empty($password)) {
 
         // 🔹 Step 1: Include both database connections
-        include 'config/db_connect.php';         // Local (MySQL)
-        include 'config/supabase_connect.php';   // Online (PostgreSQL)
+        include 'config/db_connect.php';         // Local (MySQL)  // Online (PostgreSQL)
 
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 

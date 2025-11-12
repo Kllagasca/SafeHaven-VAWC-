@@ -7,11 +7,15 @@ $pageMappings = [
     'documents.php' => ['Documents', 'Pages'],
     'services.php' => ['Posts', 'Pages'],
     'carousel.php' => ['Events/Activity Images', 'Pages'],
+    'carousel-create.php' => ['Events/Activity Images', 'Pages'],
     'news.php' => ['News', 'Pages'],
+    'news-create.php' => ['News', 'Pages'],
     'survey.php' => ['Survey', 'Pages'],
+    'survey-create.php' => ['Survey', 'Pages'],
     'users.php' => ['Users', 'Pages'],
     'user-edit.php' => ['Edit User', 'Pages'],
     'social-media.php' => ['Social Media/Links', 'Pages'],
+    'social-media-create.php' => ['Add Social Media/Links', 'Pages'],
     'generate-focalperson.php' => ['Generate Focal Person', 'Pages'],
     'case-create.php' => ['Create Case', 'Pages'],
     'case-details.php' => ['Case Details', 'Pages'],
@@ -40,51 +44,6 @@ $breadcrumb = isset($pageMappings[$pageName]) ? $pageMappings[$pageName] : ['Unk
         </nav>
         <div class="collapse navbar-collapse mt-sm-0 mt-2 me-md-0 me-sm-4" id="navbar">
             <div class="ms-md-auto pe-md-3 d-flex align-items-center">
-                <li class="nav-item dropdown pe-2 d-flex align-items-center">
-                   
-
-    <button class="btn btn-secondary dropdown-toggle" type="button" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-        Notifications
-    </button>
-    <ul class="dropdown-menu" aria-labelledby="notificationDropdown">
-    <?php
-    try {
-        // Assuming you have a PDO connection $pdo already established
-        $query = "SELECT message, created_at FROM notifications ORDER BY created_at DESC"; // Example query to get notifications
-        $stmt = $pdo->prepare($query);
-        $stmt->execute();
-
-        $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC); // Fetch all notifications as an associative array
-
-        if (!empty($notifications)) {
-            foreach ($notifications as $notification) {
-                // Sanitize the message to prevent XSS
-                $message = htmlspecialchars($notification['message'], ENT_QUOTES, 'UTF-8');
-                
-                // Sanitize the date and format it
-                $createdAt = htmlspecialchars(date('F j, Y, g:i a', strtotime($notification['created_at'])), ENT_QUOTES, 'UTF-8');
-
-                // Display the notification
-                echo "<li class='dropdown-item'>
-                        <strong>$message</strong><br>
-                        <small>$createdAt</small>
-                      </li>";
-            }
-        } else {
-            // If no notifications are found
-            echo "<li class='dropdown-item'>No notifications</li>";
-        }
-    } catch (PDOException $e) {
-        // Handle any potential PDO errors
-        echo "<li class='dropdown-item'>Error: " . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "</li>";
-    }
-?>
-
-
-
-    </ul>
-        </div>
-            </li>
                 <li class="nav-item d-xl-none ps-3 d-flex align-items-center">
                     <a href="javascript:;" class="nav-link text-body p-0" id="iconNavbarSidenav">
                         <div class="sidenav-toggler-inner">
@@ -97,4 +56,4 @@ $breadcrumb = isset($pageMappings[$pageName]) ? $pageMappings[$pageName] : ['Unk
             </div>
         </div>
     </div>
-</nav> 
+</nav>

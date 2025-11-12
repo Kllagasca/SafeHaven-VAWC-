@@ -21,7 +21,7 @@
                      <div class="row">
                     <div class="col-md-4">
                     <div class="mb-3">
-                        <label for="num">Case No.</label>
+                        <label for="num">Case No. (YYYY-MM-###-Barangay)</label>
                         <input type="text" name="casenum" id="casenum" required class="form-control" placeholder="Enter Case No." />
                     </div>
                     </div>

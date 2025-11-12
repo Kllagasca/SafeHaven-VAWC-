@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,1,0"/>
+
 <footer class="footer pt-3  ">
         <div class="container-fluid">
           <div class="row align-items-center justify-content-lg-between">
@@ -29,56 +31,71 @@
       </footer>
 
       </main>
-  <div class="fixed-plugin">
-    <a class="fixed-plugin-button text-dark position-fixed px-3 py-2">
-      <i class="fa fa-cog py-2"> </i>
-    </a>
-    <div class="card shadow-lg ">
-      <div class="card-header pb-0 pt-3 ">
-        <div class="float-start">
-          <h5 class="mt-3 mb-0">Dashboard Configurator</h5>
-          <p>See our dashboard options.</p>
+  <?php /* Inline AI chat popup inside the fixed-plugin (replaces configurator) */ ?>
+  <div id="chat-fixed-plugin" class="fixed-plugin">
+    <button id="chat-plugin-toggle" class="fixed-plugin-button text-white position-fixed px-3 py-2" style="background:#8368ce;border:none;border-radius:50%;right:20px;bottom:20px;z-index:2200;width:56px;height:56px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,0.12);">
+      <i class="fa fa-comment" style="font-size:20px;color:#fff"></i>
+    </button>
+
+    <?php $ts = @filemtime(__DIR__ . '/../../ai_chatbot/styles.css') ?: time(); ?>
+    <link rel="stylesheet" href="/SafeHaven/ai_chatbot/styles.css?v=<?php echo $ts; ?>">
+
+    <!-- Inline chat popup (from ai_chat.php) -->
+    <div class="chat-popup" id="chat-popup" style="display:none;position:fixed;right:20px;bottom:90px;z-index:2201;">
+        <div class="chat-header">
+            <div class="header-info">
+          <img class="chatbot-logo" src="../assets/img/logo.png" width="50" height="50" alt="SafeHaven logo" style="background:#fff;border-radius:50%;padding:6px;flex-shrink:0;">
+                <h2 class="logo-text">SafeHaven AI</h2>
+            </div>
+                <button id="close-chatbot" class="material-symbols-rounded">keyboard_arrow_down</button>
         </div>
-        <div class="float-end mt-4">
-          <button class="btn btn-link text-dark p-0 fixed-plugin-close-button">
-            <i class="fa fa-close"></i>
-          </button>
+
+        <div class="chat-body"></div>
+
+        <div class="chat-footer">
+            <form action="#" class="chat-form">
+                <textarea placeholder="Message..." class="message-input" required></textarea>
+                <div class="chat-controls">
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="images/*" id="file-input" hidden>
+                            <img src="#">
+                            <button type="button" id="file-upload" class="material-symbols-rounded">attach_file</button>
+                             <button type="button" id="file-cancel" class="material-symbols-rounded">close</button>
+                        </div>
+                    <button type="submit" id="send-message" class="material-symbols-rounded">arrow_upward</button>
+                </div>
+            </form>
         </div>
-        <!-- End Toggle Button -->
-      </div>
-      <hr class="horizontal dark my-1">
-      <div class="card-body pt-sm-3 pt-0">
-        <!-- Sidebar Backgrounds -->
-        <div>
-          <h6 class="mb-0">Sidebar Colors</h6>
-        </div>
-        <a href="javascript:void(0)" class="switch-trigger background-color">
-          <div class="badge-colors my-2 text-start">
-            <span class="badge filter bg-primary active" data-color="primary" onclick="sidebarColor(this)"></span>
-            <span class="badge filter bg-gradient-dark" data-color="dark" onclick="sidebarColor(this)"></span>
-            <span class="badge filter bg-gradient-info" data-color="info" onclick="sidebarColor(this)"></span>
-            <span class="badge filter bg-gradient-success" data-color="success" onclick="sidebarColor(this)"></span>
-            <span class="badge filter bg-gradient-warning" data-color="warning" onclick="sidebarColor(this)"></span>
-            <span class="badge filter bg-gradient-danger" data-color="danger" onclick="sidebarColor(this)"></span>
-          </div>
-        </a>
-        <!-- Sidenav Type -->
-        <div class="mt-3">
-          <h6 class="mb-0">Sidenav Type</h6>
-          <p class="text-sm">Choose between 2 different sidenav types.</p>
-        </div>
-        <div class="d-flex">
-          <button class="btn btn-primary w-100 px-3 mb-2 active" data-class="bg-transparent" onclick="sidebarType(this)">Transparent</button>
-          <button class="btn btn-primary w-100 px-3 mb-2 ms-2" data-class="bg-white" onclick="sidebarType(this)">White</button>
-        </div>
-        <p class="text-sm d-xl-none d-block mt-2">You can change the sidenav type just on desktop view.</p>
-        <hr class="horizontal dark my-sm-4">
-        <div class="w-100 text-center">
-          <h6 class="mt-3">Thank you for sharing!</h6>
-        </div>
-      </div>
     </div>
-  </div>
+
+  <!-- hidden toggler for script.js so it can bind to #chatbot-toggler when loaded -->
+  <button id="chatbot-toggler" style="display:none"></button>
+  <?php $tsJs = @filemtime(__DIR__ . '/../../ai_chatbot/script.js') ?: time(); ?>
+  <script src="/SafeHaven/ai_chatbot/script.js?v=<?php echo $tsJs; ?>"></script>
+
+    <script>
+      (function(){
+        const pluginToggle = document.getElementById('chat-plugin-toggle');
+        const chatPopup = document.getElementById('chat-popup');
+        const chatbotToggler = document.getElementById('chatbot-toggler');
+
+        // if chatbotToggler not present, create a hidden one for script.js compatibility
+        if (!chatbotToggler){
+          const hidden = document.createElement('button');
+          hidden.id = 'chatbot-toggler';
+          hidden.style.display = 'none';
+          document.body.appendChild(hidden);
+        }
+
+        pluginToggle.addEventListener('click', function(e){
+          e.preventDefault();
+          const isOpen = chatPopup.style.display === 'block';
+          chatPopup.style.display = isOpen ? 'none' : 'block';
+          // toggle body class so script.js behaviors (if any) still work
+          document.body.classList.toggle('show-chatbot', !isOpen);
+        });
+      })();
+    </script>
 
   <!--   Core JS Files   -->
 

@@ -1,6 +1,7 @@
 <?php
 require 'config/function.php';
 include 'config/supabase_connect.php';
+include 'config/db_connect.php'; // Localhost MySQL connection ($conn)
 
 if (isset($_POST['loginBtn'])) {
     // Sanitize and validate user input

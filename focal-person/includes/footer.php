@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,1,0"/>
+
 <footer class="footer pt-3  ">
         <div class="container-fluid">
           <div class="row align-items-center justify-content-lg-between">
@@ -14,13 +16,13 @@
             <div class="col-lg-6">
               <ul class="nav nav-footer justify-content-center justify-content-lg-end">
                 <li class="nav-item">
-                  <a href="../../index.php" class="nav-link text-muted" target="_blank">Honey Bunch</a>
+                  <a href="./../index.php" class="nav-link text-muted" target="_blank">Honey Bunch</a>
                 </li>
                 <li class="nav-item">
-                  <a href="../../about-us.php" class="nav-link text-muted" target="_blank">About Us</a>
+                  <a href="./../about-us.php" class="nav-link text-muted" target="_blank">About Us</a>
                 </li>
                 <li class="nav-item">
-                  <a href="../../contact.php" class="nav-link text-muted" target="_blank">Contact Us</a>
+                  <a href="./../contact.php" class="nav-link text-muted" target="_blank">Contact Us</a>
                 </li>
               </ul>
             </div>
@@ -29,72 +31,78 @@
       </footer>
 
       </main>
-  <div class="fixed-plugin">
-    <a class="fixed-plugin-button text-dark position-fixed px-3 py-2">
-      <i class="fa fa-cog py-2"> </i>
-    </a>
-    <div class="card shadow-lg ">
-      <div class="card-header pb-0 pt-3 ">
-        <div class="float-start">
-          <h5 class="mt-3 mb-0">Soft UI Configurator</h5>
-          <p>See our dashboard options.</p>
+  <?php /* Inline AI chat popup inside the fixed-plugin (replaces configurator) */ ?>
+  <div id="chat-fixed-plugin" class="fixed-plugin">
+    <button id="chat-plugin-toggle" class="fixed-plugin-button text-white position-fixed px-3 py-2" style="background:#0d6efd;border:none;border-radius:50%;right:20px;bottom:20px;z-index:2200;width:56px;height:56px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,0.12);">
+      <i class="fa fa-comment" style="font-size:20px;color:#fff"></i>
+    </button>
+
+    <?php $ts = @filemtime(__DIR__ . '/../../ai_chatbot/styles.css') ?: time(); ?>
+    <link rel="stylesheet" href="/SafeHaven/ai_chatbot/styles.css?v=<?php echo $ts; ?>">
+
+    <!-- Inline chat popup (from ai_chat.php) -->
+            <div class="chat-popup" id="chat-popup" style="display:none;position:fixed;right:20px;bottom:90px;z-index:2201;">
+        <div class="chat-header">
+            <div class="header-info">
+          <img class="chatbot-logo" src="../assets/img/logo.png" width="50" height="50" alt="SafeHaven logo" style="background:#fff;border-radius:50%;padding:6px;flex-shrink:0;">
+                <h2 class="logo-text">SafeHaven AI</h2>
+            </div>
+                <button id="close-chatbot" class="material-symbols-rounded">keyboard_arrow_down</button>
         </div>
-        <div class="float-end mt-4">
-          <button class="btn btn-link text-dark p-0 fixed-plugin-close-button">
-            <i class="fa fa-close"></i>
-          </button>
+
+
+        <div class="chat-body"></div>
+
+        <div class="chat-footer">
+            <form action="#" class="chat-form">
+                <textarea placeholder="Message..." class="message-input" required></textarea>
+                <div class="chat-controls">
+                        <div class="file-upload-wrapper">
+                            <input type="file" accept="images/*" id="file-input" hidden>
+                            <img src="#">
+                            <button type="button" id="file-upload" class="material-symbols-rounded">attach_file</button>
+                             <button type="button" id="file-cancel" class="material-symbols-rounded">close</button>
+                        </div>
+                    <button type="submit" id="send-message" class="material-symbols-rounded">arrow_upward</button>
+                </div>
+            </form>
         </div>
-        <!-- End Toggle Button -->
-      </div>
-      <hr class="horizontal dark my-1">
-      <div class="card-body pt-sm-3 pt-0">
-        <!-- Sidebar Backgrounds -->
-        <div>
-          <h6 class="mb-0">Sidebar Colors</h6>
-        </div>
-        <a href="javascript:void(0)" class="switch-trigger background-color">
-          <div class="badge-colors my-2 text-start">
-            <span class="badge filter bg-primary active" data-color="primary" onclick="sidebarColor(this)"></span>
-            <span class="badge filter bg-gradient-dark" data-color="dark" onclick="sidebarColor(this)"></span>
-            <span class="badge filter bg-gradient-info" data-color="info" onclick="sidebarColor(this)"></span>
-            <span class="badge filter bg-gradient-success" data-color="success" onclick="sidebarColor(this)"></span>
-            <span class="badge filter bg-gradient-warning" data-color="warning" onclick="sidebarColor(this)"></span>
-            <span class="badge filter bg-gradient-danger" data-color="danger" onclick="sidebarColor(this)"></span>
-          </div>
-        </a>
-        <!-- Sidenav Type -->
-        <div class="mt-3">
-          <h6 class="mb-0">Sidenav Type</h6>
-          <p class="text-sm">Choose between 2 different sidenav types.</p>
-        </div>
-        <div class="d-flex">
-          <button class="btn btn-primary w-100 px-3 mb-2 active" data-class="bg-transparent" onclick="sidebarType(this)">Transparent</button>
-          <button class="btn btn-primary w-100 px-3 mb-2 ms-2" data-class="bg-white" onclick="sidebarType(this)">White</button>
-        </div>
-        <p class="text-sm d-xl-none d-block mt-2">You can change the sidenav type just on desktop view.</p>
-        <!-- Navbar Fixed -->
-        <div class="mt-3">
-          <h6 class="mb-0">Navbar Fixed</h6>
-        </div>
-        <div class="form-check form-switch ps-0">
-          <input class="form-check-input mt-1 ms-auto" type="checkbox" id="navbarFixed" onclick="navbarFixed(this)">
-        </div>
-        <hr class="horizontal dark my-sm-4">
-        <a class="btn bg-gradient-dark w-100" href="https://www.creative-tim.com/product/soft-ui-dashboard">Free Download</a>
-        <a class="btn btn-outline-dark w-100" href="https://www.creative-tim.com/learning-lab/bootstrap/license/soft-ui-dashboard">View documentation</a>
-        <div class="w-100 text-center">
-          <a class="github-button" href="https://github.com/creativetimofficial/soft-ui-dashboard" data-icon="octicon-star" data-size="large" data-show-count="true" aria-label="Star creativetimofficial/soft-ui-dashboard on GitHub">Star</a>
-          <h6 class="mt-3">Thank you for sharing!</h6>
-          <a href="https://twitter.com/intent/tweet?text=Check%20Soft%20UI%20Dashboard%20made%20by%20%40CreativeTim%20%23webdesign%20%23dashboard%20%23bootstrap5&amp;url=https%3A%2F%2Fwww.creative-tim.com%2Fproduct%2Fsoft-ui-dashboard" class="btn btn-dark mb-0 me-2" target="_blank">
-            <i class="fab fa-twitter me-1" aria-hidden="true"></i> Tweet
-          </a>
-          <a href="https://www.facebook.com/sharer/sharer.php?u=https://www.creative-tim.com/product/soft-ui-dashboard" class="btn btn-dark mb-0 me-2" target="_blank">
-            <i class="fab fa-facebook-square me-1" aria-hidden="true"></i> Share
-          </a>
-        </div>
-      </div>
     </div>
-  </div>
+
+  <!-- hidden toggler for script.js so it can bind to #chatbot-toggler when loaded -->
+  <button id="chatbot-toggler" style="display:none"></button>
+  <?php $tsJs = @filemtime(__DIR__ . '/../../ai_chatbot/script.js') ?: time(); ?>
+  <script src="/SafeHaven/ai_chatbot/script.js?v=<?php echo $tsJs; ?>"></script>
+
+    <style>
+      /* ensure chat popup sits above other UI */
+      .chat-popup{ width:360px; height:520px; background:#fff; border-radius:8px; box-shadow:0 12px 40px rgba(0,0,0,0.12); overflow:hidden; }
+      .fixed-plugin-button{ cursor:pointer; }
+    </style>
+
+    <script>
+      (function(){
+        const pluginToggle = document.getElementById('chat-plugin-toggle');
+        const chatPopup = document.getElementById('chat-popup');
+        const chatbotToggler = document.getElementById('chatbot-toggler');
+
+        // if chatbotToggler not present, create a hidden one for script.js compatibility
+        if (!chatbotToggler){
+          const hidden = document.createElement('button');
+          hidden.id = 'chatbot-toggler';
+          hidden.style.display = 'none';
+          document.body.appendChild(hidden);
+        }
+
+        pluginToggle.addEventListener('click', function(e){
+          e.preventDefault();
+          const isOpen = chatPopup.style.display === 'block';
+          chatPopup.style.display = isOpen ? 'none' : 'block';
+          // toggle body class so script.js behaviors (if any) still work
+          document.body.classList.toggle('show-chatbot', !isOpen);
+        });
+      })();
+    </script>
 
   <!--   Core JS Files   -->
 
@@ -116,7 +124,6 @@
     });
 </script>
 
-
 <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
 
@@ -132,6 +139,7 @@
     });
   });
 </script>
+
   
   <script>
     var win = navigator.platform.indexOf('Win') > -1;
@@ -142,7 +150,6 @@
       Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
     }
   </script>
-
   <!-- Github buttons -->
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <!-- Control Center for Soft Dashboard: parallax effects, scripts for the example pages etc -->
