@@ -17,6 +17,60 @@ if (isset($_GET['id'])) {
     die("No case ID provided.");
 }
 
+// --- Notify the focal-person who created this case that an admin has viewed/taken action ---
+try {
+    $viewerRole = isset($_SESSION['loggedInUserRole']) ? $_SESSION['loggedInUserRole'] : null;
+    $viewerId = isset($_SESSION['loggedInUser']['id']) ? $_SESSION['loggedInUser']['id'] : null;
+    $caseCreatorId = isset($item['created_by']) ? $item['created_by'] : null;
+    if ($viewerRole === 'admin' && $caseCreatorId && $caseCreatorId != $viewerId) {
+        // build link for focal-person to view their case
+        $notificationLink = 'focal-person/case-details.php?id=' . urlencode($item['caseno']);
+        $notificationTitle = 'Admin viewed your case';
+        $adminName = isset($_SESSION['loggedInUser']['fname']) ? trim($_SESSION['loggedInUser']['fname'] . ' ' . ($_SESSION['loggedInUser']['lname'] ?? '')) : 'Admin';
+        $notificationMessage = "{$adminName} viewed case {$item['caseno']} and may be taking action.";
+
+        // avoid creating duplicate identical notifications for the same case -> check recent existence
+        $chk = $pdo->prepare('SELECT id, is_read FROM notifications WHERE recipient_role = :role AND recipient_id = :rid AND link = :link ORDER BY created_at DESC LIMIT 1');
+        $chk->execute([':role' => 'fperson', ':rid' => $caseCreatorId, ':link' => $notificationLink]);
+        $found = $chk->fetch(PDO::FETCH_ASSOC);
+        if (!$found) {
+            try {
+                $ins = $pdo->prepare('INSERT INTO notifications (recipient_role, recipient_id, title, message, link, is_read, created_at) VALUES (:role, :rid, :title, :msg, :link, 0, NOW())');
+                $ins->execute([
+                    ':role' => 'fperson',
+                    ':rid' => $caseCreatorId,
+                    ':title' => $notificationTitle,
+                    ':msg' => $notificationMessage,
+                    ':link' => $notificationLink
+                ]);
+                // debug log
+                try {
+                    $logPath = __DIR__ . '/../assets/logs/notification_debug.log';
+                    if (!is_dir(dirname($logPath))) mkdir(dirname($logPath), 0755, true);
+                    $insertId = null;
+                    try { $insertId = $pdo->lastInsertId(); } catch (Exception $__){ $insertId = null; }
+                    $msg = date('c') . " | Admin-view notification inserted" . ($insertId ? " ID={$insertId}" : "") . " | case={$item['caseno']} | to={$caseCreatorId}\n";
+                    file_put_contents($logPath, $msg, FILE_APPEND | LOCK_EX);
+                        // clear focal-person cache so the recipient sees the notification immediately
+                        try {
+                            $cacheFile = __DIR__ . '/../assets/cache/notifications_fperson.json';
+                            if (file_exists($cacheFile)) @unlink($cacheFile);
+                        } catch (Exception $__) {}
+                } catch (Exception $__) {}
+            } catch (Exception $e) {
+                try {
+                    $logPath = __DIR__ . '/../assets/logs/notification_debug.log';
+                    if (!is_dir(dirname($logPath))) mkdir(dirname($logPath), 0755, true);
+                    $msg = date('c') . " | Admin-view notification ERROR: " . $e->getMessage() . " | case={$item['caseno']} | to={$caseCreatorId}\n";
+                    file_put_contents($logPath, $msg, FILE_APPEND | LOCK_EX);
+                } catch (Exception $__) {}
+            }
+        }
+    }
+} catch (Exception $e) {
+    // swallow errors; notification is best-effort
+}
+
 if (isset($_SESSION['title'])) {
     // Title is already set in the session
 } else {
@@ -48,6 +102,16 @@ if (isset($_SESSION['brgy'])) {
 
 <div class="col-md-12 mb-4">
     <div class="card card-body text-capitalize">
+        <?php if (isset($_GET['notif_marked']) && $_GET['notif_marked'] == '1'): ?>
+            <div id="notifToast" class="alert alert-success" role="alert" style="position:relative; z-index:2500;">
+                Notification marked as read.
+            </div>
+            <script>
+                setTimeout(function(){
+                    var t = document.getElementById('notifToast'); if (t) t.style.display = 'none';
+                }, 3500);
+            </script>
+        <?php endif; ?>
         <h5 class="font-weight-bold">
             <span class="d-inline-flex align-items-center text-white border rounded-pill px-3 py-2" style="gap: 10px; background-color:#554fb0;">
                 <i class="fa-solid fa-file"></i>
@@ -56,9 +120,12 @@ if (isset($_SESSION['brgy'])) {
         </h5>
 
         <div style="position: absolute; top: 20px; right: 20px; z-index: 1000;">
-            <a href="../index.php" style="text-decoration: none; color: #9953ed; font-weight: bold;">
-                <i class="fas fa-arrow-left" style="margin-right: 5px;"></i> Back Home
+            <a href="cases.php" style="text-decoration: none; color: #9953ed; font-weight: bold;">
+                <i class="fas fa-arrow-left" style="margin-right: 5px;"></i> Back to Cases
             </a>
+            <?php if (isset($_SESSION['loggedInUserRole']) && $_SESSION['loggedInUserRole'] === 'admin'): ?>
+                <button id="btnNotifyCreator" class="btn btn-sm btn-success" style="margin-left:12px;">I've read it</button>
+            <?php endif; ?>
         </div>
 
         <div class="border rounded p-3 mt-2 text-dark font-weight-bold">
@@ -166,3 +233,37 @@ if (isset($_SESSION['brgy'])) {
             scrollbar-width: none;
         }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    var btn = document.getElementById('btnNotifyCreator');
+    if (!btn) return;
+    btn.addEventListener('click', function(e){
+        e.preventDefault();
+        btn.disabled = true;
+        btn.textContent = 'Notifying...';
+        var caseno = '<?= htmlspecialchars($item['caseno']); ?>';
+        fetch('../notifications/send_to_creator.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'caseno=' + encodeURIComponent(caseno),
+            credentials: 'same-origin'
+        }).then(function(res){ return res.json(); }).then(function(data){
+            if (data && data.status === 'ok') {
+                // clear admin unread badge by calling mark_read
+                fetch('../notifications/mark_read.php', { method: 'POST', credentials: 'same-origin' }).catch(function(){});
+                btn.textContent = "Notified";
+                setTimeout(function(){ btn.style.display = 'none'; }, 1800);
+            } else {
+                btn.disabled = false;
+                btn.textContent = "I've read it";
+                alert((data && data.message) ? data.message : 'Error sending notification');
+            }
+        }).catch(function(){
+            btn.disabled = false;
+            btn.textContent = "I've read it";
+            alert('Network error');
+        });
+    });
+});
+</script>

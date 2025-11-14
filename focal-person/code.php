@@ -29,6 +29,14 @@ if (isset($_POST['saveCase'])) {
     $long_description = validate($sanitized_description);
     $finalImage = NULL;
 
+    // If current user is a focal-person, enforce their session barangay to prevent tampering
+    if (isset($_SESSION['loggedInUserRole']) && $_SESSION['loggedInUserRole'] === 'fperson') {
+        $sessionBrgy = isset($_SESSION['loggedInUser']['barangay']) ? $_SESSION['loggedInUser']['barangay'] : null;
+        if (!empty($sessionBrgy)) {
+            $barangay = $sessionBrgy;
+        }
+    }
+
     // Handle image upload
     if (isset($_FILES['image']) && $_FILES['image']['size'] > 0) {
         $imageFile = $_FILES['image'];
@@ -68,14 +76,17 @@ if (isset($_POST['saveCase'])) {
 
     try {
         // --- Save to Supabase (PDO) ---
-        $query = "INSERT INTO cases ( caseno, title, status, brgy, date, contactp,
+    // include created_by (user id) so we can restrict visibility to owner + admin
+    $createdBy = isset($_SESSION['loggedInUser']['id']) ? $_SESSION['loggedInUser']['id'] : (isset($_SESSION['user']['id']) ? $_SESSION['user']['id'] : null);
+
+    $query = "INSERT INTO cases ( caseno, title, status, brgy, date, contactp,
                                       comp_name, comp_age, comp_num, comp_address,
                                       resp_name, resp_age, resp_num, resp_address,
-                                      long_description, image)
+                      long_description, image, created_by)
                   VALUES ( :casenum, :title, :status, :barangay, :incident_date, :contactp,
                           :complainant, :cage, :cnum, :caddress,
                           :respondent, :rage, :rnum, :raddress,
-                          :long_description, :image)";
+              :long_description, :image, :created_by)";
 
         $stmt = $pdo->prepare($query);
         $stmt->execute([
@@ -94,7 +105,8 @@ if (isset($_POST['saveCase'])) {
             ':rnum'             => $rnum,
             ':raddress'         => $raddress,
             ':long_description' => $long_description,
-            ':image'            => $finalImage
+            ':image'            => $finalImage,
+            ':created_by'       => $createdBy
         ]);
 
         // save to localhost (MySQLi)
@@ -102,8 +114,8 @@ if (isset($_POST['saveCase'])) {
             `caseno`, `title`, `status`, `brgy`, `date`, `contactp`,
             `comp_name`, `comp_age`, `comp_num`, `comp_address`,
             `resp_name`, `resp_age`, `resp_num`, `resp_address`,
-            `long_description`, `image`
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            `long_description`, `image`, `created_by`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         if ($finalImage === NULL) {
             $finalImage = '';
@@ -116,11 +128,11 @@ if (isset($_POST['saveCase'])) {
 
         mysqli_stmt_bind_param(
             $stmt2,
-            "ssssssssssssssss",
+            "ssssssssssssssssi",
             $casenum, $title, $status, $barangay, $incident_date, $contactp,
             $complainant, $cage, $cnum, $caddress,
             $respondent, $rage, $rnum, $raddress,
-            $long_description, $finalImage
+            $long_description, $finalImage, $createdBy
         );
 
         if (!mysqli_stmt_execute($stmt2)) {
@@ -128,6 +140,44 @@ if (isset($_POST['saveCase'])) {
         }
 
         mysqli_stmt_close($stmt2);
+
+        // Create a notification for admins about the new case (best-effort; non-blocking)
+        $creatorName = isset($_SESSION['loggedInUser']['fname']) ? trim($_SESSION['loggedInUser']['fname'] . ' ' . ($_SESSION['loggedInUser']['lname'] ?? '')) : 'Focal Person';
+        $notificationTitle = 'New case submitted';
+        $notificationMessage = "Case {$casenum} was created by {$creatorName} in {$barangay}.";
+        $notificationLink = 'admin/case-details.php?caseno=' . urlencode($casenum);
+
+        // Insert into Supabase/PDO notifications table (if exists)
+        try {
+            $notifQuery = "INSERT INTO notifications (recipient_role, title, message, link, is_read, created_at)
+                           VALUES (:recipient_role, :title, :message, :link, 0, NOW())";
+            $nstmt = $pdo->prepare($notifQuery);
+            $nstmt->execute([
+                ':recipient_role' => 'admin',
+                ':title' => $notificationTitle,
+                ':message' => $notificationMessage,
+                ':link' => $notificationLink,
+            ]);
+            // Debug: log successful supabase insert (write lastInsertId if available)
+            try {
+                $logPath = __DIR__ . '/../assets/logs/notification_debug.log';
+                if (!is_dir(dirname($logPath))) mkdir(dirname($logPath), 0755, true);
+                $insertId = null;
+                try { $insertId = $pdo->lastInsertId(); } catch (Exception $__) { $insertId = null; }
+                $msg = date('c') . " | Supabase notification inserted" . ($insertId ? " ID={$insertId}" : "") . " | case={$casenum}\n";
+                file_put_contents($logPath, $msg, FILE_APPEND | LOCK_EX);
+            } catch (Exception $__) {}
+        } catch (Exception $e) {
+            // Log the exception to a debug file so we can inspect why Supabase insert failed
+            try {
+                $logPath = __DIR__ . '/../assets/logs/notification_debug.log';
+                if (!is_dir(dirname($logPath))) mkdir(dirname($logPath), 0755, true);
+                $msg = date('c') . " | Supabase notification ERROR: " . $e->getMessage() . " | case={$casenum}\n";
+                file_put_contents($logPath, $msg, FILE_APPEND | LOCK_EX);
+            } catch (Exception $__) {}
+        }
+
+        // Local MySQL notification writes removed — notifications are consolidated in Supabase only.
 
         redirect('cases.php', 'Case Saved Successfully');
 

@@ -115,6 +115,44 @@ include('includes/navbar.php'); // Include the navbar
     text-align: center; /* Center the text */
 }
 
+    /* Staggered fade-in for hero texts */
+    .stagger-item {
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 420ms cubic-bezier(.2,.9,.2,1), transform 420ms cubic-bezier(.2,.9,.2,1);
+    }
+
+    .stagger-item.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .stagger-item {
+            opacity: 1 !important;
+            transform: none !important;
+            transition: none !important;
+        }
+    }
+
+    /* Fade out the whole hero when the user scrolls down; reappear on scroll up */
+    .text-container {
+        transition: opacity 360ms ease, transform 360ms ease;
+        will-change: opacity, transform;
+    }
+
+    .text-container.hidden {
+        opacity: 0;
+        transform: translateY(-6px);
+        pointer-events: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .text-container {
+            transition: none !important;
+        }
+    }
+
 .custom-button {
     margin-top: 20px;
     padding: 12px 30px;
@@ -156,7 +194,6 @@ include('includes/navbar.php'); // Include the navbar
         }
     }
 
-
     </style>
 </head>
 <body>
@@ -166,12 +203,12 @@ include('includes/navbar.php'); // Include the navbar
 <div style="position: relative; width: 100%; height: 87vh;"> <!-- Full viewport height -->
     <div class="bg-image" style="position: relative; z-index: 1; display: flex; justify-content: center; align-items: center; flex-direction: column; height: 100%;">
         <div class="text-container">
-        <div class="header-text">Welcome to SafeHaven!</div>
-        <div class="sub-text">Your Safe Space Against Violence</div>
-        <div class="description">A comprehensive online platform dedicated to combating violence <br>
+        <div class="header-text stagger-item">Welcome to SafeHaven!</div>
+        <div class="sub-text stagger-item">Your Safe Space Against Violence</div>
+        <div class="description stagger-item">A comprehensive online platform dedicated to combating violence <br>
             against women and children through awareness, support, and <br>
             community action.</div>
-            <button class="custom-button" onclick="window.location.href='index.php#posts';">Explore More</button>
+            <button class="custom-button stagger-item" onclick="window.location.href='index.php#posts';">Explore More</button>
 
 
         </div>
@@ -297,9 +334,21 @@ try {
                                 </div>
                                 <div class="col-md-8">
                                     <div class="card-body d-flex flex-column">
+                                        <?php
+                                        // Format created_at to show date and hour:minute (no seconds)
+                                        $created = '';
+                                        if (!empty($row['created_at'])) {
+                                            try {
+                                                $dt = new DateTime($row['created_at']);
+                                                $created = $dt->format('F j, Y g:i A');
+                                            } catch (Exception $e) {
+                                                $created = $row['created_at'];
+                                            }
+                                        }
+                                        ?>
                                         <h5 class="card-title text-uppercase" style="color: #7c2aa6;">
                                             <span style="font-weight: bold;"><?= htmlspecialchars($row['name']); ?></span>
-                                            <span style="font-weight: normal;">(<?= htmlspecialchars($row['created_at']); ?>)</span>
+                                            <span style="font-weight: normal;">(<?= htmlspecialchars($created); ?>)</span>
                                         </h5>
                                         <p class="card-text text-dark">
                                             <?= htmlspecialchars(substr(strip_tags($row['long_description']), 0, 100)) . '...'; ?>
@@ -332,10 +381,6 @@ try {
         ?>
     </div>
 </div>
-
-
-
-
 
             <!-- Articles Section -->
             <div class="col-12 col-lg-4 mb-4 order-0 order-lg-2"> <!-- Default position for large screens -->
@@ -526,6 +571,61 @@ try {
 </div>
 
 
+<script>
+    // Sequentially add the `visible` class to each .post-item so they fade in one-by-one.
+    // Uses a small stagger delay. If you prefer animation on scroll, we can switch to IntersectionObserver.
+    document.addEventListener('DOMContentLoaded', function () {
+        // First animate hero/stagger items in order (header, subtitle, description, button)
+        const staggerItems = document.querySelectorAll('.stagger-item');
+        staggerItems.forEach((el, i) => {
+            const delay = i * 300; // 300ms between hero lines
+            setTimeout(() => el.classList.add('visible'), delay);
+        });
+
+        // Then animate post items after a short offset so header animations feel complete
+        const posts = document.querySelectorAll('.post-item');
+        const postsStartDelay = Math.max(600, staggerItems.length * 300 + 150); // ensure posts start after hero
+        posts.forEach((el, i) => {
+            const delay = postsStartDelay + i * 120;
+            setTimeout(() => el.classList.add('visible'), delay);
+        });
+
+        // -- Hide/reveal hero on scroll (fade out when scrolling down, reappear on scroll up) --
+        // Respect user's reduced-motion preference
+        const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!prefersReduced) {
+            let lastY = window.scrollY;
+            const deltaThreshold = 8; // minimal delta to trigger
+            const hero = document.querySelector('.text-container');
+
+            if (hero) {
+                let scheduled = false;
+                window.addEventListener('scroll', function () {
+                    // Throttle via requestAnimationFrame for smoother behavior
+                    if (scheduled) return;
+                    scheduled = true;
+                    window.requestAnimationFrame(() => {
+                        const y = window.scrollY || window.pageYOffset;
+                        const dy = y - lastY;
+
+                        // If scrolled down enough and we're beyond the top area, hide hero
+                        if (dy > deltaThreshold && y > 60) {
+                            hero.classList.add('hidden');
+                        }
+
+                        // If scrolled up enough, show hero again
+                        if (lastY - y > deltaThreshold || y <= 60) {
+                            hero.classList.remove('hidden');
+                        }
+
+                        lastY = y;
+                        scheduled = false;
+                    });
+                }, { passive: true });
+            }
+        }
+    });
+</script>
 <?php include('includes/footer.php'); ?>
 </body>
 </html>

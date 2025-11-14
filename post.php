@@ -1,3 +1,13 @@
+<style>
+            ::-webkit-scrollbar {
+            display: none;
+        }
+
+
+        html {
+            scrollbar-width: smooth;
+        }
+</style>
 <?php
 $pageTitle = "Posts";
 include('includes/navbar.php');
@@ -33,8 +43,21 @@ try {
 <div class="py-4 mt-3 bg-light">
     <div class="container">
         <h2 class="text-dark text-center"><?= htmlspecialchars($rowData['name']); ?></h2>
+        <?php
+        // Format created_at to show date and hour:minute (no seconds)
+        $created = '';
+        if (!empty($rowData['created_at'])) {
+            try {
+                $dt = new DateTime($rowData['created_at']);
+                $created = $dt->format('F j, Y g:i A');
+            } catch (Exception $e) {
+                // If parsing fails, fall back to raw value
+                $created = $rowData['created_at'];
+            }
+        }
+        ?>
         <p class="text-dark text-center"> 
-            <span>Posted at: <?= htmlspecialchars($rowData['created_at']); ?></span>
+            <span>Posted at: <?= htmlspecialchars($created); ?></span>
         </p>
     </div>
 </div>

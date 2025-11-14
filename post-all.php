@@ -20,6 +20,16 @@ try {
     <title>Services</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
+
+        html {
+            scrollbar-width: smooth;
+        }
+
         .card {
             height: 100%;
             display: flex;
@@ -67,8 +77,21 @@ try {
                                 <h5 class="card-title"><?= htmlspecialchars($row['name']); ?></h5>
                                 <p class="card-text text-truncate"><?= htmlspecialchars(strip_tags($row['long_description'])); ?></p>
                                 <div class="d-flex justify-content-between align-items-center">
+                                    <?php
+                                    // Format created_at to show date and hour:minute (no seconds)
+                                    $created = '';
+                                    if (!empty($row['created_at'])) {
+                                        try {
+                                            $dt = new DateTime($row['created_at']);
+                                            $created = $dt->format('F j, Y g:i A');
+                                        } catch (Exception $e) {
+                                            // If parsing fails, fall back to raw value
+                                            $created = $row['created_at'];
+                                        }
+                                    }
+                                    ?>
                                     <span class="badge bg-light text-dark">
-                                        <?= htmlspecialchars($row['created_at']); ?>
+                                        <?= htmlspecialchars($created); ?>
                                     </span>
                                     <a href="post.php?slug=<?= htmlspecialchars($row['slug']); ?>" 
                                        class="btn btn-primary btn-sm">

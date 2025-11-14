@@ -17,6 +17,22 @@ if (isset($_GET['id'])) {
     die("No case ID provided.");
 }
 
+// Authorization: allow only the case owner (created_by) or admin to view details
+$currentUserId = isset($_SESSION['loggedInUser']['id']) ? $_SESSION['loggedInUser']['id'] : (isset($_SESSION['user']['id']) ? $_SESSION['user']['id'] : null);
+$currentUserRole = isset($_SESSION['loggedInUserRole']) ? $_SESSION['loggedInUserRole'] : (isset($_SESSION['user']['role']) ? $_SESSION['user']['role'] : null);
+
+if ($currentUserId === null) {
+    die('Unauthorized access.');
+}
+
+// If created_by column exists in the fetched row, enforce ownership
+if (array_key_exists('created_by', $item)) {
+    if ($currentUserRole !== 'admin' && intval($item['created_by']) !== intval($currentUserId)) {
+        // not owner and not admin
+        die('You do not have permission to view this case.');
+    }
+}
+
 if (isset($_SESSION['title'])) {
     // Title is already set in the session
 } else {
@@ -48,6 +64,16 @@ if (isset($_SESSION['brgy'])) {
 
 <div class="col-md-12 mb-4">
     <div class="card card-body text-capitalize">
+        <?php if (isset($_GET['notif_marked']) && $_GET['notif_marked'] == '1'): ?>
+            <div id="notifToast" class="alert alert-success" role="alert" style="position:relative; z-index:2500;">
+                Notification marked as read.
+            </div>
+            <script>
+                setTimeout(function(){
+                    var t = document.getElementById('notifToast'); if (t) t.style.display = 'none';
+                }, 3500);
+            </script>
+        <?php endif; ?>
         <h5 class="font-weight-bold">
             <span class="d-inline-flex align-items-center text-white border rounded-pill px-3 py-2" style="gap: 10px; background-color:#554fb0;">
                 <i class="fa-solid fa-file"></i>
@@ -56,8 +82,8 @@ if (isset($_SESSION['brgy'])) {
         </h5>
 
         <div style="position: absolute; top: 20px; right: 20px; z-index: 1000;">
-            <a href="../index.php" style="text-decoration: none; color: #9953ed; font-weight: bold;">
-                <i class="fas fa-arrow-left" style="margin-right: 5px;"></i> Back Home
+            <a href="cases.php" style="text-decoration: none; color: #9953ed; font-weight: bold;">
+                <i class="fas fa-arrow-left" style="margin-right: 5px;"></i> Back to Cases
             </a>
         </div>
 
@@ -150,7 +176,7 @@ if (isset($_SESSION['brgy'])) {
             </h5>
 
             <div class="border rounded p-3 mt-2 text-dark font-weight-bold">
-                <p><?= nl2br(htmlspecialchars($item['image'] ?? 'N/A')); ?></p>
+                <p><?= nl2br(htmlspecialchars($item['long_description'] ?? 'N/A')); ?></p>
             </div>
             
             </div>

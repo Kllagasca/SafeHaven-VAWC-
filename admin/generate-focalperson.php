@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
 
     $slug = preg_replace('/[^a-z0-9\-]/', '', strtolower(str_replace(' ', '-', $barangay)));
     if ($slug === '') $slug = 'barangay';
-    $domain = $slug . '.example.com';
+    $domain = $slug . '.safehaven.com';
     if ($count < 1) $count = 1;
     if ($count > 100) $count = 100;
 
@@ -49,8 +49,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
             // Generate unique email (check Supabase)
             $unique = false;
             $attempts = 0;
+            // Build a cleaned, lowercase contact-person token for email local-part (remove spaces)
+            $cp_token = $contact_person !== '' ? strtolower(preg_replace('/\s+/', '', $contact_person)) : 'focalperson';
             do {
-                $local = 'fperson' . randomString(4) . rand(10, 99);
+                $local = $cp_token . randomString(4) . rand(10, 99);
                 $email = $local . '@' . $domain;
                 $check = $pdo->prepare('SELECT COUNT(*) FROM users WHERE email = :email');
                 $check->execute([':email' => $email]);
@@ -68,32 +70,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
             $plain = generatePassword(10);
             $hashed = password_hash($plain, PASSWORD_DEFAULT);
 
-            $fname = 'FocalPerson';
+            // Use contact person name as first name if provided, otherwise default
+            $fname = $contact_person !== '' ? $contact_person : 'FocalPerson';
             $lname = $barangay;
             $role = 'fperson';
             $is_ban = 0;
 
             try {
                 // ✅ 1. Insert into Supabase (main DB using $pdo)
-                $query = "INSERT INTO users (fname, lname, email, password, role, is_ban)
-                          VALUES (:fname, :lname, :email, :password, :role, :is_ban)";
-                $stmt = $pdo->prepare($query);
-                $stmt->execute([
-                    ':fname' => $fname,
-                    ':lname' => $lname,
-                    ':email' => $email,
-                    ':password' => $hashed,
-                    ':role' => $role,
-                    ':is_ban' => $is_ban,
-                ]);
+                if ($barangay !== '') {
+                    $query = "INSERT INTO users (fname, lname, email, password, role, is_ban, barangay)
+                              VALUES (:fname, :lname, :email, :password, :role, :is_ban, :barangay)";
+                    $stmt = $pdo->prepare($query);
+                    $stmt->execute([
+                        ':fname' => $fname,
+                        ':lname' => $lname,
+                        ':email' => $email,
+                        ':password' => $hashed,
+                        ':role' => $role,
+                        ':is_ban' => $is_ban,
+                        ':barangay' => $barangay,
+                    ]);
+                } else {
+                    $query = "INSERT INTO users (fname, lname, email, password, role, is_ban)
+                              VALUES (:fname, :lname, :email, :password, :role, :is_ban)";
+                    $stmt = $pdo->prepare($query);
+                    $stmt->execute([
+                        ':fname' => $fname,
+                        ':lname' => $lname,
+                        ':email' => $email,
+                        ':password' => $hashed,
+                        ':role' => $role,
+                        ':is_ban' => $is_ban,
+                    ]);
+                }
 
                 // ✅ 2. Also insert into Localhost MySQL (XAMPP)
-                $local_sql = "INSERT INTO users (fname, lname, email, password, role, is_ban)
-                              VALUES (?, ?, ?, ?, ?, ?)";
-                $local_stmt = mysqli_prepare($conn, $local_sql);
-                mysqli_stmt_bind_param($local_stmt, "sssssi",
-                    $fname, $lname, $email, $hashed, $role, $is_ban
-                );
+                if ($barangay !== '') {
+                    $local_sql = "INSERT INTO users (fname, lname, email, password, role, is_ban, barangay)
+                                  VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    $local_stmt = mysqli_prepare($conn, $local_sql);
+                    // types: fname(s), lname(s), email(s), password(s), role(s), is_ban(i), barangay(s)
+                    mysqli_stmt_bind_param($local_stmt, "sssssis",
+                        $fname, $lname, $email, $hashed, $role, $is_ban, $barangay
+                    );
+                } else {
+                    $local_sql = "INSERT INTO users (fname, lname, email, password, role, is_ban)
+                                  VALUES (?, ?, ?, ?, ?, ?)";
+                    $local_stmt = mysqli_prepare($conn, $local_sql);
+                    mysqli_stmt_bind_param($local_stmt, "sssssi",
+                        $fname, $lname, $email, $hashed, $role, $is_ban
+                    );
+                }
                 mysqli_stmt_execute($local_stmt);
 
                 // Track generated
@@ -135,15 +163,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                         </div>
                         <div class="col-md-4">
                             <label>Barangay:</label>
-                            <input type="text" name="barangay" class="form-control" placeholder="e.g., San Isidro" required>
+                            <input type="text" name="barangay" class="form-control" placeholder="Enter Barangay" required>
                         </div>
                         <div class="col-md-3">
                             <label>Date:</label>
-                            <input type="date" name="date" class="form-control" value="<?= date('Y-m-d'); ?>">
+                            <input name="date" class="form-control" value="<?= date('Y-m-d'); ?>">
                         </div>
                         <div class="col-md-3">
-                            <label>Contact Person:</label>
-                            <input type="text" name="contact_person" class="form-control" placeholder="e.g., Juan Dela Cruz">
+                            <label>Focal Person:</label>
+                            <input type="text" name="contact_person" class="form-control" placeholder="Enter Focal Person Name">
                         </div>
                     </div>
                     <div class="row mt-3">
@@ -173,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                                 <th>Email</th>
                                 <th>Barangay</th>
                                 <th>Date</th>
-                                <th>Contact Person</th>
+                                <th>Focal Person</th>
                                 <th>Password</th>
                             </tr>
                         </thead>

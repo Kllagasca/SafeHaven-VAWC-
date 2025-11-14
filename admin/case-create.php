@@ -21,7 +21,7 @@
                      <div class="row">
                     <div class="col-md-4">
                     <div class="mb-3">
-                        <label for="num">Case No. (YYYY-MM-###-Barangay)</label>
+                        <label for="num">Case No. (YYYY-MM-###)</label>
                         <input type="text" name="casenum" id="casenum" required class="form-control" placeholder="Enter Case No." />
                     </div>
                     </div>
@@ -151,14 +151,14 @@
                     <div class="col-md-4">
                     <div class="mb-3">
                     <label for="date">Date of Incident</label>
-                    <input type="date" name="date" id="date" required class="form-control" placeholder="Enter Date of Incident" />
+                    <input name="date" id="date" required class="form-control" value="<?= date('Y-m-d') ?>" />
                     </div>
                     </div>
 
                     <div class="col-md-4">
                     <div class="mb-3">
-                        <label for="name">Contact Person</label>
-                        <input type="text" name="contactp" id="contactp" required class="form-control" placeholder="Enter Contact Person" />
+                        <label for="name">Focal Person</label>
+                        <input type="text" name="contactp" id="contactp" required class="form-control" placeholder="Enter Focal Person" />
                     </div>
                     </div>
                     </div>

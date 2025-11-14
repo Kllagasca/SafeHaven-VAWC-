@@ -31,13 +31,29 @@ if (isset($_POST['loginBtn'])) {
 
                     // Set session variables securely
                     $_SESSION['auth'] = true;
-                    $_SESSION['user'] = [
+                    // include barangay only for focal-person accounts (supports column 'barangay' or 'brgy')
+                    $userBrgy = '';
+                    if ($row['role'] === 'fperson') {
+                        if (isset($row['barangay']) && !empty($row['barangay'])) {
+                            $userBrgy = $row['barangay'];
+                        } elseif (isset($row['brgy']) && !empty($row['brgy'])) {
+                            $userBrgy = $row['brgy'];
+                        }
+                    }
+
+                    $sessionUser = [
                         'id' => $row['id'],
                         'fname' => $row['fname'],
                         'lname' => $row['lname'],
                         'email' => $row['email'],
-                        'role' => $row['role']
+                        'role' => $row['role'],
+                        'barangay' => $userBrgy
                     ];
+
+                    // store under both keys for compatibility with different parts of the app
+                    $_SESSION['user'] = $sessionUser;
+                    $_SESSION['loggedInUser'] = $sessionUser;
+                    $_SESSION['loggedInUserRole'] = $row['role'];
 
                     // Add login notification
                     $event = 'login';

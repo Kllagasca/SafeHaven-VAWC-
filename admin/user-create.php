@@ -63,6 +63,95 @@
 
                         <div class="col-md-3">
                             <div class="mb-3">
+                                <label>Barangay (optional)</label>
+                                <select name="barangay" class="form-select">
+                                    <option value="">Select Barangay</option>
+                                    <option value="I-A (Sambat)">I-A (Sambat)</option>
+                                    <option value="I-B (City Sub Riverside)">I-B (City Sub Riverside)</option>
+                                    <option value="I-C (Bagong Bayan)">I-C (Bagong Bayan)</option>
+                                    <option value="II-A (Triangulo/ Guadalupe 2)">II-A (Triangulo/ Guadalupe 2)</option>
+                                    <option value="II-B (Guadalupe 1)">II-B (Guadalupe 1)</option>
+                                    <option value="II-C (Unson)">II-C (Unson)</option>
+                                    <option value="II-D (Bulante)">II-D (Bulante)</option>
+                                    <option value="II-E (San Anton)">II-E (San Anton)</option>
+                                    <option value="II-F (Villa Rey)">II-F (Villa Rey)</option>
+                                    <option value="III-A (Hermanos Belen)">III-A (Hermanos Belen)</option>
+                                    <option value="III-B">III-B</option>
+                                    <option value="III-C (Labak/De Roma)">III-C (Labak/De Roma)</option>
+                                    <option value="III-D (Villongco)">III-D (Villongco)</option>
+                                    <option value="III-E">III-E</option>
+                                    <option value="III-F (Balagtas)">III-F (Balagtas)</option>
+                                    <option value="IV-A">IV-A</option>
+                                    <option value="IV-B">IV-B</option>
+                                    <option value="IV-C">IV-C</option>
+                                    <option value="V-A">V-A</option>
+                                    <option value="V-B">V-B</option>
+                                    <option value="V-C">V-C</option>
+                                    <option value="V-D">V-D</option>
+                                    <option value="VI-A (Mavenida)">VI-A (Mavenida)</option>
+                                    <option value="VI-B (Sabang Mabini)">VI-B (Sabang Mabini)</option>
+                                    <option value="VI-C (Bagong Pook)">VI-C (Bagong Pook)</option>
+                                    <option value="VI-D (Lakeside)">VI-D (Lakeside)</option>
+                                    <option value="VI-E (YMCA)">VI-E (YMCA)</option>
+                                    <option value="VII-A (P.Alcantara)">VII-A (P.Alcantara)</option>
+                                    <option value="VII-B">VII-B</option>
+                                    <option value="VII-C">VII-C</option>
+                                    <option value="VII-D">VII-D</option>
+                                    <option value="VII-E">VII-E</option>
+                                    <option value="Atisan">Atisan</option>
+                                    <option value="Bautista">Bautista</option>
+                                    <option value="Concepcion (Bunot)">Concepcion (Bunot)</option>
+                                    <option value="Del Remedio (Wawa)">Del Remedio (Wawa)</option>
+                                    <option value="Dolores">Dolores</option>
+                                    <option value="San Antonio 1 (Balanga)">San Antonio 1 (Balanga)</option>
+                                    <option value="San Antonio 2 (Sapa)">San Antonio 2 (Sapa)</option>
+                                    <option value="San Bartolome (Matang-ag)">San Bartolome (Matang-ag)</option>
+                                    <option value="San Buenaventura (Palakpakin)">San Buenaventura (Palakpakin)</option>
+                                    <option value="San Crispin (Lumbangan)">San Crispin (Lumbangan)</option>
+                                    <option value="San Cristobal">San Cristobal</option>
+                                    <option value="San Diego (Tiim)">San Diego (Tiim)</option>
+                                    <option value="San Francisco (Calihan)">San Francisco (Calihan)</option>
+                                    <option value="San Gabriel (Butucan)">San Gabriel (Butucan)</option>
+                                    <option value="San Gregorio">San Gregorio</option>
+                                    <option value="San Ignacio">San Ignacio</option>
+                                    <option value="San Isidro (Balagbag)">San Isidro (Balagbag)</option>
+                                    <option value="San Joaquin">San Joaquin</option>
+                                    <option value="San Jose (Malamig)">San Jose (Malamig)</option>
+                                    <option value="San Juan (Putol)">San Juan (Putol)</option>
+                                    <option value="San Lorenzo (Saluyan)">San Lorenzo (Saluyan)</option>
+                                    <option value="San Lucas 1 (Malinaw)">San Lucas 1 (Malinaw)</option>
+                                    <option value="San Lucas 2 (Malinaw)">San Lucas 2 (Malinaw)</option>
+                                    <option value="San Marcos (Tikew)">San Marcos (Tikew)</option>
+                                    <option value="San Mateo (Imok)">San Mateo (Imok)</option>
+                                    <option value="San Miguel (Balatuin)">San Miguel (Balatuin)</option>
+                                    <option value="San Nicolas (Mag-ampon)">San Nicolas (Mag-ampon)</option>
+                                    <option value="San Pedro">San Pedro</option>
+                                    <option value="San Rafael (Buluburan)">San Rafael (Buluburan)</option>
+                                    <option value="San Roque (Sambat)">San Roque (Sambat)</option>
+                                    <option value="San Vicente">San Vicente</option>
+                                    <option value="Santa Ana">Santa Ana</option>
+                                    <option value="Santa Catalina (Sandig)">Santa Catalina (Sandig)</option>
+                                    <option value="Santa Cruz (Putol)">Santa Cruz (Putol)</option>
+                                    <option value="Santa Elena">Santa Elena</option>
+                                    <option value="Santa Filomena (Banlagin)">Santa Filomena (Banlagin)</option>
+                                    <option value="Santa Isabel">Santa Isabel</option>
+                                    <option value="Santa Maria">Santa Maria</option>
+                                    <option value="Santa Maria Magdalena (Boe / Kuba)">Santa Maria Magdalena (Boe / Kuba)</option>
+                                    <option value="Santa Monica">Santa Monica</option>
+                                    <option value="Santa Veronica (Bae)">Santa Veronica (Bae)</option>
+                                    <option value="Santiago I (Bulaho)">Santiago I (Bulaho)</option>
+                                    <option value="Santiago II (Bulaho)">Santiago II (Bulaho)</option>
+                                    <option value="Santisimo Rosario (Balagbag)">Santisimo Rosario (Balagbag)</option>
+                                    <option value="Santo Angel (Ilog)">Santo Angel (Ilog)</option>
+                                    <option value="Santo Cristo">Santo Cristo</option>
+                                    <option value="Santo Niño (Arsum)">Santo Niño (Arsum)</option>
+                                    <option value="Soledad (Macopa)">Soledad (Macopa)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="mb-3">
                                 <label>Is Ban</label>
                                 <br/>
                                 <input type="checkbox" name="is_ban" style="width:30px; height:30px;" />
@@ -95,13 +184,19 @@ if (isset($_POST['saveUser'])) {
     $password = validate($_POST['password']);
     $role = validate($_POST['role']);
     $is_ban = isset($_POST['is_ban']) ? 1 : 0; // Convert checkbox value to 1 or 0
+    $barangay = isset($_POST['barangay']) && $_POST['barangay'] !== '' ? validate($_POST['barangay']) : null;
 
     // Hash the password for security
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-    // Prepare the SQL query to insert the new user
-    $query = "INSERT INTO users (fname, lname, email, password, role, is_ban) 
-              VALUES (:fname, :lname, :email, :password, :role, :is_ban)";
+    // Prepare the SQL query to insert the new user (include barangay if provided)
+    if ($barangay !== null) {
+        $query = "INSERT INTO users (fname, lname, email, password, role, is_ban, barangay) 
+                  VALUES (:fname, :lname, :email, :password, :role, :is_ban, :barangay)";
+    } else {
+        $query = "INSERT INTO users (fname, lname, email, password, role, is_ban) 
+                  VALUES (:fname, :lname, :email, :password, :role, :is_ban)";
+    }
 
     // Prepare the statement using PDO
     $stmt = $pdo->prepare($query);
@@ -113,6 +208,9 @@ if (isset($_POST['saveUser'])) {
     $stmt->bindParam(':password', $hashedPassword);
     $stmt->bindParam(':role', $role);
     $stmt->bindParam(':is_ban', $is_ban, PDO::PARAM_INT);
+    if ($barangay !== null) {
+        $stmt->bindParam(':barangay', $barangay);
+    }
 
     // Execute the statement and check for success
     if ($stmt->execute()) {

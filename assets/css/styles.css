@@ -378,3 +378,40 @@ form .btn2{
     margin-top: -10px;
     display: block;
 }
+
+/* Make native scrollbars transparent but still usable
+   - WebKit browsers (Chrome, Safari, Edge Chromium) use ::-webkit-scrollbar
+   - Firefox respects scrollbar-color and scrollbar-width
+   The thumb becomes slightly visible on hover for discoverability. */
+* {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+}
+
+/* Webkit-based browsers */
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: transparent; /* fully transparent by default */
+    border-radius: 8px;
+    border: 2px solid transparent; /* keep space so layout doesn't shift */
+}
+
+/* Show a faint thumb on hover to indicate scrollability */
+*::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.12);
+}
+
+/* Optional: show a faint track on hover for better contrast */
+*::-webkit-scrollbar-track:hover {
+    background: rgba(255,255,255,0.02);
+}
