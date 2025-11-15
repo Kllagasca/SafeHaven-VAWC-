@@ -3,6 +3,97 @@ require '../config/function.php';
 include('../config/db_connect.php');       // XAMPP MySQLi connection ($conn)
 include('../config/supabase_connect.php'); // Supabase PDO connection ($pdo)
 
+// Helper: Clean editor HTML but allow a small set of safe tags and attributes.
+// - decodes HTML entities
+// - removes data-* attributes (editor artifacts)
+// - removes disallowed tags but preserves their inner text
+// - for <a> only allow href/target/rel and sanitize javascript: URIs
+if (!function_exists('clean_editor_html')) {
+    function clean_editor_html($html) {
+        if (trim($html) === '') return '';
+
+        // Decode entities that editors sometimes store as &lt;p ...&gt;
+        $html = html_entity_decode($html, ENT_QUOTES | ENT_HTML5);
+
+        // Remove data-* attributes (like data-start="..." data-end="...")
+        $html = preg_replace('/\sdata-(?:[a-z0-9_-]+)=(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $html);
+
+        // Allowed tags and attributes
+        $allowed = [
+            'p' => [], 'br' => [], 'b' => [], 'strong' => [], 'i' => [], 'em' => [],
+            'ul' => [], 'ol' => [], 'li' => [], 'a' => ['href','target','rel']
+        ];
+
+        // Use DOMDocument to safely traverse and clean
+        $doc = new DOMDocument();
+        libxml_use_internal_errors(true);
+        // Ensure proper encoding
+        $doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+        libxml_clear_errors();
+
+        // Iterate through all nodes under body
+        $body = $doc->getElementsByTagName('body')->item(0);
+        if (!$body) {
+            return '';
+        }
+
+        // Collect nodes first to avoid modifying while iterating
+        $nodes = [];
+        foreach ($body->getElementsByTagName('*') as $n) {
+            $nodes[] = $n;
+        }
+
+        foreach ($nodes as $node) {
+            $tag = $node->nodeName;
+
+            if (!array_key_exists($tag, $allowed)) {
+                // Replace disallowed tag with its children (preserve text)
+                $fragment = $doc->createDocumentFragment();
+                while ($node->firstChild) {
+                    $fragment->appendChild($node->removeChild($node->firstChild));
+                }
+                $node->parentNode->replaceChild($fragment, $node);
+                continue;
+            }
+
+            // Allowed tag: remove attributes except those explicitly allowed
+            if ($node->hasAttributes()) {
+                $attrNames = [];
+                foreach (iterator_to_array($node->attributes) as $attr) {
+                    $attrNames[] = $attr->name;
+                }
+
+                foreach ($attrNames as $attrName) {
+                    if (!in_array($attrName, $allowed[$tag])) {
+                        $node->removeAttribute($attrName);
+                        continue;
+                    }
+
+                    // Sanitize allowed attributes (e.g., href)
+                    if ($tag === 'a' && $attrName === 'href') {
+                        $href = $node->getAttribute('href');
+                        // Disallow javascript: and data: URIs
+                        if (preg_match('/^\s*javascript:/i', $href) || preg_match('/^\s*data:/i', $href)) {
+                            $node->removeAttribute('href');
+                        } else {
+                            // Normalize href to escaped string
+                            $node->setAttribute('href', htmlspecialchars($href, ENT_QUOTES | ENT_HTML5));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Return innerHTML of body
+        $out = '';
+        foreach ($body->childNodes as $child) {
+            $out .= $doc->saveHTML($child);
+        }
+
+        return $out;
+    }
+}
+
 
 
 if (isset($_POST['saveUser'])) {
@@ -307,7 +398,9 @@ if (isset($_POST['updateSocialMedia'])) {
 if (isset($_POST['savePost'])) {
     $name = validate($_POST['name']);
     $slug = str_replace(' ', '-', strtolower($name));
-    $long_description = strip_tags(validate($_POST['long_description']));
+    // Clean long_description: remove editor data-* attributes but preserve a safe subset of tags
+    $raw_desc = $_POST['long_description'] ?? '';
+    $long_description = clean_editor_html($raw_desc);
     $status = isset($_POST['status']) && $_POST['status'] == '1' ? '1' : '0';
 
 
@@ -362,10 +455,12 @@ if (isset($_POST['savePost'])) {
 
     // PDO query to insert post
     try {
-        $query = "INSERT INTO services (name, slug, long_description, image, status, approval_status)
-                  VALUES (:name, :slug, :long_description, :image, :status, :approval_status)";
-        $stmt = $pdo->prepare($query);
+        // include created_at to satisfy DB NOT NULL constraint
+        $created_at = date('Y-m-d H:i:s');
 
+        $query = "INSERT INTO services (name, slug, long_description, image, status, approval_status, created_at)
+                  VALUES (:name, :slug, :long_description, :image, :status, :approval_status, :created_at)";
+        $stmt = $pdo->prepare($query);
 
         // Bind parameters
         $stmt->bindParam(':name', $name, PDO::PARAM_STR);
@@ -374,7 +469,7 @@ if (isset($_POST['savePost'])) {
         $stmt->bindParam(':image', $finalImage, PDO::PARAM_STR);
         $stmt->bindParam(':status', $status, PDO::PARAM_INT);
         $stmt->bindParam(':approval_status', $approval_status, PDO::PARAM_STR);
-
+        $stmt->bindParam(':created_at', $created_at, PDO::PARAM_STR);
 
         // Execute the statement
         if ($stmt->execute()) {
@@ -404,7 +499,9 @@ if (isset($_POST['updatePost'])) {
     $serviceId = validate($_POST['serviceId']);
     $name = validate($_POST['name']);
     $slug = str_replace(' ', '-', strtolower($name));
-    $long_description = strip_tags(string: validate($_POST['long_description']));
+    // Clean long_description similarly: remove editor data-* attributes but preserve safe tags
+    $raw_desc = $_POST['long_description'] ?? '';
+    $long_description = clean_editor_html($raw_desc);
     $author = validate($_POST['author']);
     $status = validate($_POST['status']) == true ? '1' : '0';
 
@@ -1030,6 +1127,7 @@ if (isset($_POST['saveCase'])) {
 
     try {
         // --- Save to Supabase (PDO) ---
+        // Use RETURNING to capture the Supabase/Postgres generated id for this row
         $query = "INSERT INTO cases ( caseno, title, status, brgy, date, contactp,
                                       comp_name, comp_age, comp_num, comp_address,
                                       resp_name, resp_age, resp_num, resp_address,
@@ -1037,7 +1135,8 @@ if (isset($_POST['saveCase'])) {
                   VALUES ( :casenum, :title, :status, :barangay, :incident_date, :contactp,
                           :complainant, :cage, :cnum, :caddress,
                           :respondent, :rage, :rnum, :raddress,
-                          :long_description, :image)";
+                          :long_description, :image)
+                  RETURNING id";
 
         $stmt = $pdo->prepare($query);
         $stmt->execute([
@@ -1059,42 +1158,95 @@ if (isset($_POST['saveCase'])) {
             ':image'            => $finalImage
         ]);
 
+        // Fetch the returned Supabase/Postgres id when available
+        $supabaseId = null;
+        try {
+            $supabaseId = $stmt->fetchColumn();
+        } catch (Exception $e) {
+            // If fetchColumn fails, fall back to lastInsertId (best-effort)
+            try { $supabaseId = $pdo->lastInsertId(); } catch (Exception $__){ $supabaseId = null; }
+        }
+
         // save to localhost
-$insertQuery = "INSERT INTO `cases` (
-    `caseno`, `title`, `status`, `brgy`, `date`, `contactp`,
-    `comp_name`, `comp_age`, `comp_num`, `comp_address`,
-    `resp_name`, `resp_age`, `resp_num`, `resp_address`,
-    `long_description`, `image`
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        if ($finalImage === NULL) { $finalImage = ''; }
 
-if ($finalImage === NULL) {
-    $finalImage = '';
-}
+        // Detect whether local `cases` table has a supabase_id column (migration may not be applied)
+        $hasSupabaseId = false;
+        try {
+            $colCheck = mysqli_query($conn, "SHOW COLUMNS FROM `cases` LIKE 'supabase_id'");
+            if ($colCheck && mysqli_num_rows($colCheck) > 0) {
+                $hasSupabaseId = true;
+            }
+        } catch (Exception $__) {
+            $hasSupabaseId = false;
+        }
 
+        if ($hasSupabaseId) {
+            // Insert including supabase_id and timestamp when available
+            $insertQuery = "INSERT INTO `cases` (
+                `caseno`, `title`, `status`, `brgy`, `date`, `contactp`,
+                `comp_name`, `comp_age`, `comp_num`, `comp_address`,
+                `resp_name`, `resp_age`, `resp_num`, `resp_address`,
+                `long_description`, `image`, `supabase_id`, `supabase_id_created_at`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-$stmt2 = mysqli_prepare($conn, $insertQuery);
-if (!$stmt2) {
-    die("Prepare failed: " . mysqli_error($conn) . "\nQuery: " . $insertQuery);
-}
+            $supabaseIdVal = $supabaseId !== null ? (string)$supabaseId : null;
+            $supabaseIdCreated = $supabaseIdVal ? date('Y-m-d H:i:s') : null;
 
-if (!mysqli_stmt_bind_param(
-    $stmt2,
-    "ssssssssssssssss",
-    $casenum, $title, $status, $barangay, $incident_date, $contactp,
-    $complainant, $cage, $cnum, $caddress,
-    $respondent, $rage, $rnum, $raddress,
-    $long_description, $finalImage
-)) {
-    die("Bind failed: " . mysqli_stmt_error($stmt2));
-}
+            $stmt2 = mysqli_prepare($conn, $insertQuery);
+            if (!$stmt2) {
+                die("Prepare failed: " . mysqli_error($conn) . "\nQuery: " . $insertQuery);
+            }
 
-if (!mysqli_stmt_execute($stmt2)) {
-    die("Execute failed: " . mysqli_stmt_error($stmt2));
-}
+            // bind with two extra params for supabase_id and timestamp (use 's' for supabase_id and 's' for timestamp)
+            mysqli_stmt_bind_param(
+                $stmt2,
+                "ssssssssssssssssss",
+                $casenum, $title, $status, $barangay, $incident_date, $contactp,
+                $complainant, $cage, $cnum, $caddress,
+                $respondent, $rage, $rnum, $raddress,
+                $long_description, $finalImage, $supabaseIdVal, $supabaseIdCreated
+            );
 
-mysqli_stmt_close($stmt2);
+            if (!mysqli_stmt_execute($stmt2)) {
+                // If local insert fails, we should at least log the error; do not throw away the supabase row
+                error_log('Local MySQL insert failed (with supabase_id): ' . mysqli_stmt_error($stmt2));
+            }
 
-redirect('cases.php', 'Case Saved Successfully');
+            mysqli_stmt_close($stmt2);
+        } else {
+            // Fallback: insert without supabase_id column present
+            $insertQuery = "INSERT INTO `cases` (
+                `caseno`, `title`, `status`, `brgy`, `date`, `contactp`,
+                `comp_name`, `comp_age`, `comp_num`, `comp_address`,
+                `resp_name`, `resp_age`, `resp_num`, `resp_address`,
+                `long_description`, `image`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+            $stmt2 = mysqli_prepare($conn, $insertQuery);
+            if (!$stmt2) {
+                die("Prepare failed: " . mysqli_error($conn) . "\nQuery: " . $insertQuery);
+            }
+
+            if (!mysqli_stmt_bind_param(
+                $stmt2,
+                "ssssssssssssssss",
+                $casenum, $title, $status, $barangay, $incident_date, $contactp,
+                $complainant, $cage, $cnum, $caddress,
+                $respondent, $rage, $rnum, $raddress,
+                $long_description, $finalImage
+            )) {
+                die("Bind failed: " . mysqli_stmt_error($stmt2));
+            }
+
+            if (!mysqli_stmt_execute($stmt2)) {
+                die("Execute failed: " . mysqli_stmt_error($stmt2));
+            }
+
+            mysqli_stmt_close($stmt2);
+        }
+
+        redirect('cases.php', 'Case Saved Successfully');
 
     } catch (Exception $e) {
         redirect('cases.php', 'Error: ' . $e->getMessage());

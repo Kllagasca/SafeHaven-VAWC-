@@ -54,6 +54,97 @@ $breadcrumb = isset($pageMappings[$pageName]) ? $pageMappings[$pageName] : ['Unk
                     </a>
                 </li>
             </div>
+            <?php
+            // admin notification bell (moved here from admin/index.php)
+            try {
+                $role = $_SESSION['loggedInUserRole'] ?? $_SESSION['role'] ?? null;
+                $rid = $_SESSION['loggedInUser']['id'] ?? $_SESSION['user']['id'] ?? $_SESSION['id'] ?? null;
+                $adminNotifications = [];
+                $adminNotifCount = 0;
+                if ($role === 'admin') {
+                    $nq = $pdo->prepare("SELECT id, title, message, link, is_read, created_at FROM notifications WHERE recipient_role = :role ORDER BY created_at DESC LIMIT 5");
+                    $nq->execute([':role' => $role]);
+                    $adminNotifications = $nq->fetchAll(PDO::FETCH_ASSOC);
+
+                    $cntq = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE recipient_role = :role AND is_read = 0");
+                    $cntq->execute([':role' => $role]);
+                    $adminNotifCount = (int) $cntq->fetchColumn();
+                }
+            } catch (Exception $e) {
+                $adminNotifications = [];
+                $adminNotifCount = 0;
+            }
+            ?>
+
+            <div class="d-flex align-items-center">
+                <div class="notification-wrapper me-3" style="position:relative;">
+                    <button id="notifToggleAdmin" class="btn btn-sm btn-light" aria-expanded="false" style="position:relative;">
+                        <i class="fa fa-bell"></i>
+                        <?php if (!empty($adminNotifCount)): ?>
+                            <span class="notif-badge" style="position:absolute; top:-6px; right:-6px; background:#dc3545; color:#fff; border-radius:50%; padding:2px 6px; font-size:12px;"><?= $adminNotifCount ?></span>
+                        <?php endif; ?>
+                    </button>
+                    <div id="notifDropdownAdmin" class="card" style="display:none; position:absolute; right:0; width:320px; max-height:360px; overflow:auto; z-index:2000;">
+                        <div class="card-body p-2">
+                            <h6 class="mb-2">Notifications</h6>
+                            <?php if (empty($adminNotifications)): ?>
+                                <div class="small text-muted">No notifications.</div>
+                            <?php else: ?>
+                                <?php foreach ($adminNotifications as $n): ?>
+                                    <a href="<?= '../notifications/redirect.php?id=' . urlencode($n['id']) ?>" class="d-block p-2 border-bottom text-dark" style="text-decoration:none;">
+                                        <div class="fw-bold"><?= htmlspecialchars($n['title']) ?></div>
+                                        <div class="small text-muted"><?= htmlspecialchars(substr($n['message'],0,80)) ?></div>
+                                        <div class="small text-muted mt-1"><?= isset($n['created_at']) ? htmlspecialchars(format_datetime($n['created_at'], 'M j, Y g:i A')) : '' ?></div>
+                                    </a>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                            <div class="mt-2 text-end"><a href="notifications.php">See all</a></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <script>
+            (function(){
+                var btn = document.getElementById('notifToggleAdmin');
+                var dd = document.getElementById('notifDropdownAdmin');
+                var badge = btn ? btn.querySelector('.notif-badge') : null;
+                var opened = false;
+
+                async function markRead() {
+                    try {
+                        const res = await fetch('../notifications/mark_read.php', { method: 'POST', credentials: 'same-origin' });
+                        const data = await res.json();
+                        if (data && data.status === 'ok') {
+                            if (badge) {
+                                if (parseInt(data.unread, 10) > 0) {
+                                    badge.textContent = data.unread;
+                                    badge.style.display = 'inline-block';
+                                } else {
+                                    badge.style.display = 'none';
+                                }
+                            }
+                            document.querySelectorAll('.case-unread').forEach(function(r){ r.classList.remove('case-unread'); });
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+
+                if (btn) btn.addEventListener('click', function(e){
+                    e.preventDefault();
+                    if (dd.style.display === 'none' || dd.style.display === '') {
+                        dd.style.display = 'block';
+                        if (!opened) {
+                            opened = true;
+                            markRead();
+                        }
+                    } else dd.style.display = 'none';
+                });
+                document.addEventListener('click', function(e){
+                    if (!btn.contains(e.target) && !dd.contains(e.target)) dd.style.display = 'none';
+                });
+            })();
+            </script>
         </div>
     </div>
 </nav>

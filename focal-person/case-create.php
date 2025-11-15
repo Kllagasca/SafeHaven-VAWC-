@@ -62,7 +62,7 @@
                     <div class="col-md-4">
                     <div class="mb-3">
                         <label for="barangay">Incident Location</label>
-                        <select name="barangay" id="barangay" class="form-select" required>
+                        <select name="barangay" id="barangay" class="form-select barangay-select" required>
                         <option value="">Select Barangay (Incident Location)</option>
                         <option value="I-A (Sambat)">I-A (Sambat)</option>
                             <option value="I-B (City Sub Riverside)">I-B (City Sub Riverside)</option>
@@ -249,3 +249,36 @@
 </div>
 
 <?php include('includes/footer.php'); ?>
+
+<script>
+// Initialize Select2 for barangay select (load jQuery/select2 only if needed)
+(function(){
+    function loadScript(src, cb){
+        var s = document.createElement('script'); s.src = src; s.onload = cb; document.head.appendChild(s);
+    }
+    function loadCSS(href){
+        var l = document.createElement('link'); l.rel='stylesheet'; l.href=href; document.head.appendChild(l);
+    }
+
+    var initSelect2 = function(){
+        if (typeof $ === 'undefined' || typeof $.fn === 'undefined' || typeof $.fn.select2 === 'undefined') return;
+        document.querySelectorAll('.barangay-select').forEach(function(el){
+            var parent = el.closest('.card') || el.closest('.col-md-4') || el.closest('.form-group') || document.body;
+            $(el).select2({ width: '100%', dropdownParent: $(parent) });
+        });
+    };
+
+    // If jQuery or select2 missing, load them from CDN (fallback)
+    if (typeof $ === 'undefined') {
+        loadScript('https://code.jquery.com/jquery-3.6.0.min.js', function(){
+            loadCSS('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css');
+            loadScript('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', initSelect2);
+        });
+    } else if (typeof $.fn.select2 === 'undefined') {
+        loadCSS('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css');
+        loadScript('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', initSelect2);
+    } else {
+        initSelect2();
+    }
+})();
+</script>

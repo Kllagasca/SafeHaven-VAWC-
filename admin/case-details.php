@@ -1,14 +1,20 @@
 <?php
 include('includes/header.php');
 
-// Get case ID from URL
+// Get case identifier from URL. Prefer numeric local id, fallback to caseno string.
 if (isset($_GET['id'])) {
-    $id = $_GET['id'];
-
-    // Prepare and execute query
-    $stmt = $pdo->prepare("SELECT * FROM cases WHERE caseno = ?");
-    $stmt->execute([$id]);
-    $item = $stmt->fetch(PDO::FETCH_ASSOC);
+    $raw = $_GET['id'];
+    if (ctype_digit($raw)) {
+        $id = (int)$raw;
+        $stmt = $pdo->prepare("SELECT * FROM cases WHERE id = :id LIMIT 1");
+        $stmt->execute([':id' => $id]);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+    } else {
+        $caseno = $raw;
+        $stmt = $pdo->prepare("SELECT * FROM cases WHERE caseno = :caseno LIMIT 1");
+        $stmt->execute([':caseno' => $caseno]);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 
     if (!$item) {
         die("Case not found.");
@@ -23,11 +29,11 @@ try {
     $viewerId = isset($_SESSION['loggedInUser']['id']) ? $_SESSION['loggedInUser']['id'] : null;
     $caseCreatorId = isset($item['created_by']) ? $item['created_by'] : null;
     if ($viewerRole === 'admin' && $caseCreatorId && $caseCreatorId != $viewerId) {
-        // build link for focal-person to view their case
-        $notificationLink = 'focal-person/case-details.php?id=' . urlencode($item['caseno']);
+    // build link for focal-person to view their case (use local id when available)
+    $notificationLink = 'focal-person/case-details.php?id=' . urlencode($item['id'] ?? $item['caseno']);
         $notificationTitle = 'Admin viewed your case';
-        $adminName = isset($_SESSION['loggedInUser']['fname']) ? trim($_SESSION['loggedInUser']['fname'] . ' ' . ($_SESSION['loggedInUser']['lname'] ?? '')) : 'Admin';
-        $notificationMessage = "{$adminName} viewed case {$item['caseno']} and may be taking action.";
+    $adminName = isset($_SESSION['loggedInUser']['fname']) ? trim($_SESSION['loggedInUser']['fname'] . ' ' . ($_SESSION['loggedInUser']['lname'] ?? '')) : 'Admin';
+    $notificationMessage = "{$adminName} viewed case {$item['caseno']} and may be taking action.";
 
         // avoid creating duplicate identical notifications for the same case -> check recent existence
         $chk = $pdo->prepare('SELECT id, is_read FROM notifications WHERE recipient_role = :role AND recipient_id = :rid AND link = :link ORDER BY created_at DESC LIMIT 1');
@@ -124,7 +130,7 @@ if (isset($_SESSION['brgy'])) {
                 <i class="fas fa-arrow-left" style="margin-right: 5px;"></i> Back to Cases
             </a>
             <?php if (isset($_SESSION['loggedInUserRole']) && $_SESSION['loggedInUserRole'] === 'admin'): ?>
-                <button id="btnNotifyCreator" class="btn btn-sm btn-success" style="margin-left:12px;">I've read it</button>
+                <button id="btnNotifyCreator" class="btn btn-sm btn-success" style="margin-left:12px;">Mark as Read</button>
             <?php endif; ?>
         </div>
 
@@ -217,13 +223,66 @@ if (isset($_SESSION['brgy'])) {
             </h5>
 
             <div class="border rounded p-3 mt-2 text-dark font-weight-bold">
-                <p><?= nl2br(htmlspecialchars($item['long_description'] ?? 'N/A')); ?></p>
+                <?php
+                // Show uploaded image if available.
+                if (!empty($item['image'])) {
+                    $raw = trim($item['image']);
+
+                    // If the DB value is a full URL (e.g., Supabase public URL), use it directly
+                    if (preg_match('#^https?://#i', $raw)) {
+                        $imgUrl = htmlspecialchars($raw);
+                        echo "<a href=\"{$imgUrl}\" target=\"_blank\" rel=\"noopener noreferrer\">";
+                        echo "<img src=\"{$imgUrl}\" alt=\"Case evidence\" class=\"img-fluid\" style=\"max-height:480px; display:block; margin:auto;\" />";
+                        echo "</a>";
+                    } else {
+                        // Normalize DB value to a web-relative path under assets/uploads
+                        if (preg_match('#assets[\\/]+uploads[\\/]+(.+)#i', $raw, $m)) {
+                            // m[1] is the path after assets/uploads/ (e.g., cases/filename.jpg)
+                            $webRelative = 'assets/uploads/' . str_replace('\\', '/', $m[1]);
+                        } else {
+                            // Assume the DB stored a bare filename
+                            $webRelative = 'assets/uploads/cases/' . ltrim(str_replace('\\', '/', $raw), '/');
+                        }
+
+                        // Front-end URL (relative from admin folder)
+                        $imgUrl = htmlspecialchars('../' . $webRelative);
+
+                        // Compute filesystem path based on project root
+                        $projectRoot = realpath(__DIR__ . '/..');
+                        if ($projectRoot === false) {
+                            $projectRoot = __DIR__ . '/..';
+                        }
+                        $fileOnDisk = $projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $webRelative);
+
+                        if (file_exists($fileOnDisk)) {
+                            echo "<a href=\"{$imgUrl}\" target=\"_blank\" rel=\"noopener noreferrer\">";
+                            echo "<img src=\"{$imgUrl}\" alt=\"Case evidence\" class=\"img-fluid\" style=\"max-height:480px; display:block; margin:auto;\" />";
+                            echo "</a>";
+                        } else {
+                            // File missing on disk: show clickable URL and a small hint for debugging
+                            echo "<p><a href=\"{$imgUrl}\" target=\"_blank\" rel=\"noopener noreferrer\">" . $imgUrl . "</a></p>";
+                            // Helpful debug note (visible only to admins)
+                            if (isset($_SESSION['loggedInUserRole']) && $_SESSION['loggedInUserRole'] === 'admin') {
+                                $safeDisk = htmlspecialchars($fileOnDisk);
+                                echo "<small class=\"text-muted\">(Checked server path: {$safeDisk})</small>";
+                            }
+                        }
+                    }
+                } else {
+                    echo '<p>N/A</p>';
+                }
+                ?>
             </div>
             
             </div>
         </div>
     </div>
 </div>
+
+
+
+
+
 
 <style>
             ::-webkit-scrollbar {
@@ -234,34 +293,54 @@ if (isset($_SESSION['brgy'])) {
         }
 </style>
 
+<button id="btnReadCaseFixed" 
+        class="btn btn-success" 
+        style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
+    Mark as Read
+</button>
+
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-    var btn = document.getElementById('btnNotifyCreator');
+    var caseno = '<?= htmlspecialchars($item['caseno']); ?>';
+    var caseId = '<?= htmlspecialchars($item['id'] ?? $item['caseno']); ?>';
+    var btn = document.getElementById('btnReadCaseFixed');
     if (!btn) return;
+
+    // Check if this case was already marked as read in localStorage
+    if (localStorage.getItem('caseRead_' + caseno)) {
+        btn.style.display = 'none';
+        return;
+    }
+
     btn.addEventListener('click', function(e){
         e.preventDefault();
         btn.disabled = true;
         btn.textContent = 'Notifying...';
-        var caseno = '<?= htmlspecialchars($item['caseno']); ?>';
+
         fetch('../notifications/send_to_creator.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'caseno=' + encodeURIComponent(caseno),
-            credentials: 'same-origin'
-        }).then(function(res){ return res.json(); }).then(function(data){
+            body: 'id=' + encodeURIComponent(caseId),
+            credentials: 'same-origin' // important to send session cookie
+        }).then(function(res){ return res.json(); })
+        .then(function(data){
             if (data && data.status === 'ok') {
-                // clear admin unread badge by calling mark_read
+                // Mark this case as read in localStorage
+                localStorage.setItem('caseRead_' + caseno, '1');
+
+                // Optionally, clear admin unread badge
                 fetch('../notifications/mark_read.php', { method: 'POST', credentials: 'same-origin' }).catch(function(){});
+                
                 btn.textContent = "Notified";
-                setTimeout(function(){ btn.style.display = 'none'; }, 1800);
+                setTimeout(function(){ btn.style.display = 'none'; }, 500);
             } else {
                 btn.disabled = false;
-                btn.textContent = "I've read it";
+                btn.textContent = "I've read this case";
                 alert((data && data.message) ? data.message : 'Error sending notification');
             }
         }).catch(function(){
             btn.disabled = false;
-            btn.textContent = "I've read it";
+            btn.textContent = "I've read this case";
             alert('Network error');
         });
     });

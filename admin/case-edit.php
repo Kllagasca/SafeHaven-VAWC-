@@ -17,19 +17,29 @@
 
             <?php
 
-                if (!isset($_GET['caseno']) || empty($_GET['caseno'])) {
-                    echo "<h5>Invalid or missing case number.</h5>";
-                    return;
+                // Support both legacy ?caseno= and new ?id= (local numeric id). Prefer id if provided.
+                $case = null;
+                if (isset($_GET['id']) && ctype_digit($_GET['id'])) {
+                    $id = (int) $_GET['id'];
+                    $query = "SELECT * FROM cases WHERE id = :id LIMIT 1";
+                    $stmt = $pdo->prepare($query);
+                    $stmt->execute([':id' => $id]);
+                    $case = $stmt->fetch(PDO::FETCH_ASSOC);
                 }
 
-                $caseno = validate($_GET['caseno']);
+                if (!$case) {
+                    if (!isset($_GET['caseno']) || empty($_GET['caseno'])) {
+                        echo "<h5>Invalid or missing case identifier.</h5>";
+                        return;
+                    }
+                    $caseno = validate($_GET['caseno']);
+                    $query = "SELECT * FROM cases WHERE caseno = :caseno";
+                    $stmt = $pdo->prepare($query);
+                    $stmt->bindParam(':caseno', $caseno);
+                    $stmt->execute();
+                    $case = $stmt->fetch(PDO::FETCH_ASSOC);
+                }
 
-                $query = "SELECT * FROM cases WHERE caseno = :caseno";
-                $stmt = $pdo->prepare($query);
-                $stmt->bindParam(':caseno', $caseno);
-                $stmt->execute();
-
-                $case = $stmt->fetch(PDO::FETCH_ASSOC);
                 if ($case):
             ?>
 

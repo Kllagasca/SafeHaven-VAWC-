@@ -78,9 +78,9 @@
                         foreach ($documents as $item) {
                         ?>
                         <tr>
-                            <td><?= htmlspecialchars($item['id']); ?></td>
-                            <td class="doc-title"><?= htmlspecialchars($item['name']); ?></td>
-                            <td><?= htmlspecialchars($item['created_at']); ?></td>
+                                    <td><?= htmlspecialchars($item['id']); ?></td>
+                                    <td class="doc-title"><?= htmlspecialchars($item['name']); ?></td>
+                                    <td><?= htmlspecialchars(format_datetime($item['created_at'])); ?></td>
                             <td>
                                 <?php 
                                 if ($item['approval_status'] == 'pending') {

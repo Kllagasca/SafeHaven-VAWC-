@@ -62,45 +62,48 @@
                                 ? ( $statusFilter ? " AND date = :date" : "WHERE date = :date" ) 
                                 : "";
 
-                                // Only show cases created by the logged-in focal person (owner) in this area.
-                                // Admins view cases from the admin area. We'll use 'created_by' (user id) saved on case creation.
+                                // Show cases for the logged-in focal-person's barangay.
+                                // If barangay is not available, fall back to owner-scoped view (cases created by the user).
+                                $sessionBrgy = null;
+                                if (isset($_SESSION['loggedInUser']['barangay'])) {
+                                    $sessionBrgy = $_SESSION['loggedInUser']['barangay'];
+                                } elseif (isset($_SESSION['barangay'])) {
+                                    $sessionBrgy = $_SESSION['barangay'];
+                                } elseif (isset($_SESSION['user']['barangay'])) {
+                                    $sessionBrgy = $_SESSION['user']['barangay'];
+                                }
+
                                 $currentUserId = isset($_SESSION['loggedInUser']['id']) ? $_SESSION['loggedInUser']['id'] : (isset($_SESSION['user']['id']) ? $_SESSION['user']['id'] : null);
 
-                                // Build base filters for status/date as before
-                                if ($currentUserId !== null) {
-                                    // ensure we always filter by owner
-                                    $ownerFilter = "WHERE created_by = :created_by";
-                                    // append date/status if provided
-                                    if ($statusFilter) {
-                                        // statusFilter already contains WHERE, so replace to use AND
-                                        $statusFilter = " AND status = :status";
-                                    }
-                                    if ($dateFilter) {
-                                        // dateFilter may start with WHERE or AND depending on previous logic; normalize to AND
-                                        $dateFilter = " AND date = :date";
-                                    }
+                                // Build filters normalized to use AND when combined with the primary filter
+                                if ($statusFilter) {
+                                    $statusFilter = " AND status = :status";
+                                }
+                                if ($dateFilter) {
+                                    $dateFilter = " AND date = :date";
+                                }
 
+                                if (!empty($sessionBrgy)) {
+                                    $brgyFilter = "WHERE brgy = :brgy";
+                                    $query = "SELECT * FROM cases $brgyFilter $statusFilter $dateFilter ORDER BY date DESC";
+                                    $stmt = $pdo->prepare($query);
+                                    $stmt->bindValue(':brgy', $sessionBrgy);
+                                    if ($statusFilter) $stmt->bindValue(':status', intval($_GET['status']), PDO::PARAM_INT);
+                                    if ($dateFilter) $stmt->bindValue(':date', $_GET['date']);
+                                } elseif ($currentUserId !== null) {
+                                    // fallback to owner-scoped view if barangay not available
+                                    $ownerFilter = "WHERE created_by = :created_by";
                                     $query = "SELECT * FROM cases $ownerFilter $statusFilter $dateFilter ORDER BY date DESC";
                                     $stmt = $pdo->prepare($query);
-
-                                    // Bind owner and other params
                                     $stmt->bindValue(':created_by', $currentUserId, PDO::PARAM_INT);
-                                    if ($statusFilter) {
-                                        $stmt->bindValue(':status', intval($_GET['status']), PDO::PARAM_INT);
-                                    }
-                                    if ($dateFilter) {
-                                        $stmt->bindValue(':date', $_GET['date']);
-                                    }
+                                    if ($statusFilter) $stmt->bindValue(':status', intval($_GET['status']), PDO::PARAM_INT);
+                                    if ($dateFilter) $stmt->bindValue(':date', $_GET['date']);
                                 } else {
-                                    // If we don't have a logged-in user id for some reason, fall back to previous behavior (no owner filter)
+                                    // final fallback: no primary filter
                                     $query = "SELECT * FROM cases $statusFilter $dateFilter ORDER BY date DESC";
                                     $stmt = $pdo->prepare($query);
-                                    if ($statusFilter) {
-                                        $stmt->bindValue(':status', intval($_GET['status']), PDO::PARAM_INT);
-                                    }
-                                    if ($dateFilter) {
-                                        $stmt->bindValue(':date', $_GET['date']);
-                                    }
+                                    if ($statusFilter) $stmt->bindValue(':status', intval($_GET['status']), PDO::PARAM_INT);
+                                    if ($dateFilter) $stmt->bindValue(':date', $_GET['date']);
                                 }
 
                             $stmt->execute();
@@ -165,11 +168,13 @@
 
                         foreach ($cases as $item) {
                         ?>
-                        <tr class="<?= isset($unreadCases[(string)$item['caseno']]) ? 'case-unread' : '' ?>">
+                        <tr class="<?= (isset($unreadCases[(string)($item['id'] ?? '')]) || isset($unreadCases[(string)$item['caseno']])) ? 'case-unread' : '' ?>">
                             <td class="doc-title"><?= htmlspecialchars($item['caseno']); ?></td>
                             <td class="doc-title">
-                                <?php if (isset($unreadCasesIds[(string)$item['caseno']])): ?>
-                                    <a href="<?= '../notifications/redirect.php?id=' . urlencode($unreadCasesIds[(string)$item['caseno']]) ?>" class="text-dark fw-bold case-unread-link"><?= htmlspecialchars($item['title']); ?></a>
+                                <?php
+                                    $itemKey = isset($item['id']) ? (string)$item['id'] : (string)$item['caseno'];
+                                    if (isset($unreadCasesIds[$itemKey])): ?>
+                                    <a href="<?= '../notifications/redirect.php?id=' . urlencode($unreadCasesIds[$itemKey]) ?>" class="text-dark fw-bold case-unread-link"><?= htmlspecialchars($item['title']); ?></a>
                                 <?php else: ?>
                                     <?= htmlspecialchars($item['title']); ?>
                                 <?php endif; ?>
@@ -178,7 +183,7 @@
                             <td class="doc-title"><?= htmlspecialchars($item['date']); ?></td>
                             <td class="doc-title"><?= htmlspecialchars($item['comp_name']); ?></td>
                             <td>
-                                <a href="case-details.php?id=<?= urlencode($item['caseno']); ?>" class="btn btn-primary btn-sm" <?= isset($unreadCasesIds[(string)$item['caseno']]) ? 'data-notif-id="' . htmlspecialchars($unreadCasesIds[(string)$item['caseno']]) . '"' : '' ?> >
+                                <a href="case-details.php?id=<?= urlencode($item['id'] ?? $item['caseno']); ?>" class="btn btn-primary btn-sm" <?= isset($unreadCasesIds[(string)($item['id'] ?? $item['caseno'])]) ? 'data-notif-id="' . htmlspecialchars($unreadCasesIds[(string)($item['id'] ?? $item['caseno'])]) . '"' : '' ?> >
                                     View Details
                                 </a>
                             </td>
@@ -186,9 +191,9 @@
 
                             <td><?= $item['status'] == 0 ? "Open" : "Closed"; ?></td>
                             <td>
-                            <a href="case-edit.php?caseno=<?= urlencode($item['caseno']); ?>" class="btn btn-primary btn-sm">Edit</a>
+                                <a href="case-edit.php?id=<?= urlencode($item['id'] ?? $item['caseno']); ?>" class="btn btn-primary btn-sm">Edit</a>
 
-                                <a href="case-delete.php?id=<?= $item['caseno']; ?>" 
+                                <a href="case-delete.php?id=<?= $item['id'] ?? $item['caseno']; ?>" 
                                    class="btn btn-danger btn-sm"
                                    onclick="return confirm('Are you sure you want to delete this case?')">Delete</a>
                             </td>

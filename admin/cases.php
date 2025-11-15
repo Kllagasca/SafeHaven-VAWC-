@@ -138,11 +138,13 @@
 
                         foreach ($cases as $item) {
                         ?>
-                        <tr class="<?= isset($unreadCases[(string)$item['caseno']]) ? 'case-unread' : '' ?>">
+                        <tr class="<?= (isset($unreadCases[(string)($item['id'] ?? '')]) || isset($unreadCases[(string)$item['caseno']])) ? 'case-unread' : '' ?>">
                             <td class="doc-title"><?= htmlspecialchars($item['caseno']); ?></td>
                             <td class="doc-title">
-                                <?php if (isset($unreadCasesIds[(string)$item['caseno']])): ?>
-                                    <a href="<?= '../notifications/redirect.php?id=' . urlencode($unreadCasesIds[(string)$item['caseno']]) ?>" class="text-dark fw-bold case-unread-link"><?= htmlspecialchars($item['title']); ?></a>
+                                <?php
+                                    $itemKey = isset($item['id']) ? (string)$item['id'] : (string)$item['caseno'];
+                                    if (isset($unreadCasesIds[$itemKey])): ?>
+                                    <a href="<?= '../notifications/redirect.php?id=' . urlencode($unreadCasesIds[$itemKey]) ?>" class="text-dark fw-bold case-unread-link"><?= htmlspecialchars($item['title']); ?></a>
                                 <?php else: ?>
                                     <?= htmlspecialchars($item['title']); ?>
                                 <?php endif; ?>
@@ -151,7 +153,7 @@
                             <td class="doc-title"><?= htmlspecialchars($item['date']); ?></td>
                             <td class="doc-title"><?= htmlspecialchars($item['comp_name']); ?></td>
                             <td>
-                                <a href="case-details.php?id=<?= urlencode($item['caseno']); ?>" class="btn btn-primary btn-sm" <?= isset($unreadCasesIds[(string)$item['caseno']]) ? 'data-notif-id="' . htmlspecialchars($unreadCasesIds[(string)$item['caseno']]) . '"' : '' ?>>
+                                <a href="case-details.php?id=<?= urlencode($item['id'] ?? $item['caseno']); ?>" class="btn btn-primary btn-sm" <?= isset($unreadCasesIds[(string)($item['id'] ?? $item['caseno'])]) ? 'data-notif-id="' . htmlspecialchars($unreadCasesIds[(string)($item['id'] ?? $item['caseno'])]) . '"' : '' ?>>
                                     View Details
                                 </a>
                             </td>
@@ -159,9 +161,9 @@
 
                             <td><?= $item['status'] == 0 ? "Open" : "Closed"; ?></td>
                             <td>
-                                <a href="case-edit.php?caseno=<?= urlencode($item['caseno']); ?>" class="btn btn-primary btn-sm">Edit</a>
+                                <a href="case-edit.php?id=<?= urlencode($item['id'] ?? $item['caseno']); ?>" class="btn btn-primary btn-sm">Edit</a>
 
-                                <a href="case-delete.php?id=<?= $item['caseno']; ?>" 
+                                <a href="case-delete.php?id=<?= $item['id'] ?? $item['caseno']; ?>" 
                                    class="btn btn-danger btn-sm"
                                    onclick="return confirm('Are you sure you want to delete this case?')">Delete</a>
                                 <!-- Unread badge removed; row will be bolded when unread -->

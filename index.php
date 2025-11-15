@@ -544,7 +544,7 @@ try {
                                 ?>
                                 <p class="text-center"><?= $questionCount ?> question(s) in this survey</p>
                                 <div class="mt-auto text-center">
-                                    <a href="survey.php?id=<?= $row['id']; ?>" class="btn text-white">
+                                    <a href="verification.php?id=<?= $row['id']; ?>" class="btn text-white">
                                         <i class="bi bi-eye align-center"></i> View Survey
                                     </a>
                                 </div>

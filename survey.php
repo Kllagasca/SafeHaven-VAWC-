@@ -8,12 +8,10 @@ if ($id <= 0) {
     die("Invalid survey ID");
 }
 
-// Require authentication before allowing access to the survey
-if (!isset($_SESSION['auth']) || $_SESSION['auth'] !== true) {
-    $next = 'survey.php?id=' . $id;
-    // Redirect to login with a next parameter so user returns after login
-    redirect('login.php?next=' . urlencode($next), 'Login to continue...');
-}
+// Previously this page required authentication. That guard was removed so
+// anonymous users can view and submit surveys. We still attempt to resolve a
+// current user id later when recording completions, but non-logged-in users
+// may submit anonymously.
 
 $surveyQuery = "SELECT name, description FROM surveys WHERE id = $id";
 $surveyResult = mysqli_query($conn, $surveyQuery);
@@ -59,13 +57,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (is_array($response)) {
                 foreach ($response as $value) {
                     $escapedValue = mysqli_real_escape_string($conn, $value);
-                    $insertQuery = "INSERT INTO responses (question_id, answer) VALUES ($questionId, '$escapedValue')";
+                        // attach verification id if present in session
+                        $verificationId = null;
+                        if (!empty($_SESSION['survey_verification'][$id])) {
+                            $verificationId = intval($_SESSION['survey_verification'][$id]);
+                        }
+
+                        if ($verificationId) {
+                            $insertQuery = "INSERT INTO responses (question_id, answer, verification_id) VALUES ($questionId, '$escapedValue', $verificationId)";
+                        } else {
+                            $insertQuery = "INSERT INTO responses (question_id, answer) VALUES ($questionId, '$escapedValue')";
+                        }
                     mysqli_query($conn, $insertQuery);
                 }
             } else {
                 // Handle single text or radio responses
                 $escapedValue = mysqli_real_escape_string($conn, $response);
-                $insertQuery = "INSERT INTO responses (question_id, answer) VALUES ($questionId, '$escapedValue')";
+                    if ($verificationId) {
+                        $insertQuery = "INSERT INTO responses (question_id, answer, verification_id) VALUES ($questionId, '$escapedValue', $verificationId)";
+                    } else {
+                        $insertQuery = "INSERT INTO responses (question_id, answer) VALUES ($questionId, '$escapedValue')";
+                    }
                 mysqli_query($conn, $insertQuery);
             }
         }
@@ -222,7 +234,7 @@ if (!empty($_SESSION['user']['id']) || !empty($_SESSION['user_id']) || !empty($_
         </div>
 
         <div class="mx-auto text-center text-white">
-            <h4><?php echo htmlspecialchars($survey['description'], ENT_QUOTES, 'UTF-8'); ?></h4>
+            <h5><?php echo htmlspecialchars($survey['description'], ENT_QUOTES, 'UTF-8'); ?></h5>
         </div>
 
         <!-- Survey Form -->

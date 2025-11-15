@@ -179,56 +179,86 @@ exit();
                 </h4>
             </div>
             <div class="card-body">
+
+                <style>
+                    /* Nesting styles (match survey-create) */
+                    .section-card { box-shadow: 0 6px 18px rgba(0,0,0,0.06); border-radius: 8px; border: 1px solid #e9e9e9; }
+                    .section-card .card-body { background: #ffffff; }
+                    .questions-list .question-card { box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-radius: 6px; margin-bottom: 10px; }
+                    .drag-handle { font-size: 18px; color: #888; cursor: grab; }
+                </style>
+
                 <form method="POST">
+                    <div id="sections-container">
                     <?php foreach ($sections as $section): ?>
-                        <div class="section mb-4" data-section-id="<?php echo $section['id']; ?>">
-                            <h5><?php echo htmlspecialchars($section['name']); ?>
-                                <button type="submit" name="remove_section_id" value="<?php echo $section['id']; ?>" class="btn btn-danger float-end">Remove Section</button>
-                            </h5>
-
-                            <?php foreach ($questions[$section['id']] as $question): ?>
-                                <div class="form-group mb-3">
-                                    <label for="question-<?php echo $question['id']; ?>">Question:</label>
-                                    <input 
-                                        type="text" 
-                                        id="question-<?php echo $question['id']; ?>" 
-                                        name="questions[<?php echo $section['id']; ?>][<?php echo $question['id']; ?>][text]" 
-                                        class="form-control" 
-                                        value="<?php echo htmlspecialchars($question['question']); ?>" 
-                                        required>
-                                    <input type="hidden" name="questions[<?php echo $section['id']; ?>][<?php echo $question['id']; ?>][id]" value="<?php echo $question['id']; ?>">
-
-                                    <label for="type-<?php echo $question['id']; ?>">Type:</label>
-                                    <select id="type-<?php echo $question['id']; ?>" name="questions[<?php echo $section['id']; ?>][<?php echo $question['id']; ?>][type]" class="form-control">
-                                        <option value="text" <?php if ($question['type'] == 'text') echo 'selected'; ?>>Text</option>
-                                        <option value="radio" <?php if ($question['type'] == 'radio') echo 'selected'; ?>>Radio</option>
-                                        <option value="checkbox" <?php if ($question['type'] == 'checkbox') echo 'selected'; ?>>Checkbox</option>
-                                    </select>
-
-                                    <button type="submit" name="remove_question_id" value="<?php echo $question['id']; ?>" class="btn btn-danger mt-2">Remove Question</button>
-
-                                    <?php if ($question['type'] == 'radio' || $question['type'] == 'checkbox'): ?>
-                                        <div class="options-container mt-2">
-                                            <label>Options:</label>
-                                            <?php foreach ($options[$question['id']] as $option): ?>
-                                                <div class="option-item mb-2">
-                                                    <input type="text" name="options[<?php echo $question['id']; ?>][]" class="form-control" value="<?php echo htmlspecialchars($option['option_text']); ?>">
-                                                    <button type="submit" name="remove_option_id" value="<?php echo $option['id']; ?>" class="btn btn-danger btn-sm mt-2">Remove Option</button>
-                                                </div>
-                                            <?php endforeach; ?>
-                                            <button type="button" class="btn btn-secondary mt-2 add-option" data-question-id="<?php echo $question['id']; ?>">Add Option</button>
-                                        </div>
-                                    <?php endif; ?>
+                        <div class="card section-card mb-3" data-section-id="<?php echo $section['id']; ?>">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h5 class="card-title"><?php echo htmlspecialchars($section['name']); ?></h5>
+                                    <form method="POST" style="margin:0;">
+                                        <button type="submit" name="remove_section_id" value="<?php echo $section['id']; ?>" class="btn btn-danger btn-sm">Remove Section</button>
+                                    </form>
                                 </div>
-                            <?php endforeach; ?>
 
-                            <button type="button" class="btn btn-secondary mt-3 add-question" data-section-id="<?php echo $section['id']; ?>">Add Question</button>
+                                <div class="questions-list">
+                                    <?php foreach ($questions[$section['id']] as $question): ?>
+                                        <div class="card question-card mb-2">
+                                            <div class="card-body d-flex align-items-start">
+                                                <div class="drag-handle me-2">&#9776;</div>
+                                                <div class="flex-fill">
+                                                    <label for="question-<?php echo $question['id']; ?>">Question:</label>
+                                                    <input 
+                                                        type="text" 
+                                                        id="question-<?php echo $question['id']; ?>" 
+                                                        name="questions[<?php echo $section['id']; ?>][<?php echo $question['id']; ?>][text]" 
+                                                        class="form-control" 
+                                                        value="<?php echo htmlspecialchars($question['question']); ?>" 
+                                                        required>
+                                                    <input type="hidden" name="questions[<?php echo $section['id']; ?>][<?php echo $question['id']; ?>][id]" value="<?php echo $question['id']; ?>">
+
+                                                    <div class="mt-2">
+                                                        <label for="type-<?php echo $question['id']; ?>">Type:</label>
+                                                        <select id="type-<?php echo $question['id']; ?>" name="questions[<?php echo $section['id']; ?>][<?php echo $question['id']; ?>][type]" class="form-control question-type">
+                                                            <option value="text" <?php if ($question['type'] == 'text') echo 'selected'; ?>>Text</option>
+                                                            <option value="radio" <?php if ($question['type'] == 'radio') echo 'selected'; ?>>Radio</option>
+                                                            <option value="checkbox" <?php if ($question['type'] == 'checkbox') echo 'selected'; ?>>Checkbox</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <?php if ($question['type'] == 'radio' || $question['type'] == 'checkbox'): ?>
+                                                        <div class="options-container mt-2">
+                                                            <label>Options:</label>
+                                                            <?php foreach ($options[$question['id']] as $option): ?>
+                                                                <div class="option-item mb-2">
+                                                                    <input type="text" name="options[<?php echo $question['id']; ?>][]" class="form-control" value="<?php echo htmlspecialchars($option['option_text']); ?>">
+                                                                    <button type="submit" name="remove_option_id" value="<?php echo $option['id']; ?>" class="btn btn-danger btn-sm mt-2">Remove Option</button>
+                                                                </div>
+                                                            <?php endforeach; ?>
+                                                            <button type="button" class="btn btn-secondary mt-2 add-option" data-question-id="<?php echo $question['id']; ?>">Add Option</button>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div class="ms-2">
+                                                    <form method="POST" style="margin:0;">
+                                                        <button type="submit" name="remove_question_id" value="<?php echo $question['id']; ?>" class="btn btn-danger">Remove</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+
+                                <div class="mt-3">
+                                    <button type="button" class="btn btn-secondary btn-sm add-question" data-section-id="<?php echo $section['id']; ?>">Add Question</button>
+                                </div>
+                            </div>
                         </div>
-
                     <?php endforeach; ?>
+                    </div>
 
                     <div class="form-group mt-3">
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" id="add-section" class="btn btn-secondary">Add Another Section</button>
+                        <button type="submit" class="btn btn-primary ms-2">Save Changes</button>
                     </div>
                 </form>
             </div>
@@ -239,12 +269,20 @@ exit();
 <script>
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Toggle options: support both legacy .form-group and new .question-card layouts
     function toggleOptions(selectElement) {
-        const optionsContainer = selectElement.closest('.form-group').querySelector('.options-container');
-        if (selectElement.value === 'radio' || selectElement.value === 'checkbox') {
-            optionsContainer.classList.remove('d-none');
+        let container = null;
+        const qCard = selectElement.closest('.question-card');
+        if (qCard) {
+            container = qCard.querySelector('.options-container');
         } else {
-            optionsContainer.classList.add('d-none');
+            container = selectElement.closest('.form-group') ? selectElement.closest('.form-group').querySelector('.options-container') : null;
+        }
+        if (!container) return;
+        if (selectElement.value === 'radio' || selectElement.value === 'checkbox') {
+            container.classList.remove('d-none');
+        } else {
+            container.classList.add('d-none');
         }
     }
 
@@ -285,32 +323,49 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('click', function (event) {
         if (event.target && event.target.classList.contains('add-question')) {
             const sectionId = event.target.getAttribute('data-section-id');
-            const sectionElement = event.target.closest('.section');
+            const sectionCard = event.target.closest('.section-card');
+            if (!sectionCard) return;
+            const questionsList = sectionCard.querySelector('.questions-list');
             const newQuestionHTML = `
-                <div class="form-group mb-3 new-question">
-                    <label for="question-new">Question:</label>
-                    <input type="text" id="question-new" name="new_question_text" class="form-control" required>
-                    <input type="hidden" name="section_id" value="${sectionId}">
-                    <label for="type-new">Type:</label>
-                    <select id="type-new" name="new_question_type" class="form-control question-type">
-                        <option value="text">Text</option>
-                        <option value="radio">Radio</option>
-                        <option value="checkbox">Checkbox</option>
-                    </select>
-                    <div class="options-container mt-2 d-none">
-                        <label>Options:</label>
-                        <button type="button" class="btn btn-secondary mt-2 add-option" data-question-id="new">Add Option</button>
+                <div class="card question-card mb-2 new-question">
+                    <div class="card-body d-flex align-items-start">
+                        <div class="drag-handle me-2">&#9776;</div>
+                        <div class="flex-fill">
+                            <label for="question-new">Question:</label>
+                            <input type="text" id="question-new" name="new_question_text" class="form-control" required>
+                            <input type="hidden" name="section_id" value="${sectionId}">
+
+                            <div class="mt-2">
+                                <label for="type-new">Type:</label>
+                                <select id="type-new" name="new_question_type" class="form-control question-type">
+                                    <option value="text">Text</option>
+                                    <option value="radio">Radio</option>
+                                    <option value="checkbox">Checkbox</option>
+                                </select>
+                            </div>
+
+                            <div class="options-container mt-2 d-none">
+                                <label>Options:</label>
+                                <div class="options-list"></div>
+                                <button type="button" class="btn btn-secondary mt-2 add-option" data-question-id="new">Add Option</button>
+                            </div>
+                            <button type="button" class="btn btn-danger mt-2 remove-question">Remove Question</button>
+                        </div>
+                        <div class="ms-2">
+                            <!-- placeholder for remove button in existing items -->
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-danger mt-2 remove-question">Remove Question</button>
                 </div>
             `;
-            sectionElement.insertAdjacentHTML('beforeend', newQuestionHTML);
+            questionsList.insertAdjacentHTML('beforeend', newQuestionHTML);
 
             // Add event listener for the newly added dropdown
-            const newDropdown = sectionElement.querySelector('.new-question:last-child .question-type');
-            newDropdown.addEventListener('change', function () {
-                toggleOptions(this);
-            });
+            const newDropdown = questionsList.querySelector('.new-question:last-child .question-type');
+            if (newDropdown) {
+                newDropdown.addEventListener('change', function () {
+                    toggleOptions(this);
+                });
+            }
         }
     });
 
@@ -320,11 +375,103 @@ document.addEventListener('DOMContentLoaded', function () {
             const questionItem = event.target.closest('.new-question');
             if (questionItem) {
                 questionItem.remove();
+            } else {
+                // If it's an existing question card in edit mode, remove the whole question-card
+                const q = event.target.closest('.question-card');
+                if (q) q.remove();
             }
         }
     });
+
+    // Client-side remove section for newly added sections
+    document.addEventListener('click', function (e) {
+        if (e.target && e.target.classList.contains('remove-section')) {
+            const sec = e.target.closest('.section-card');
+            if (sec) sec.remove();
+        }
+    });
+
+    // Add Another Section - inserts a new section card (client-side only)
+    let sectionIndex = document.querySelectorAll('.section-card').length;
+    const addSectionBtn = document.getElementById('add-section');
+    if (addSectionBtn) {
+        addSectionBtn.addEventListener('click', function () {
+            const sectionTemplate = `
+                <div class="card section-card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title">Section</h5>
+                            <button type="button" class="btn btn-danger btn-sm remove-section">Remove Section</button>
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Section Name</label>
+                            <input type="text" name="section_names[]" class="form-control section-name" placeholder="Enter Section Name" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Section Description</label>
+                            <textarea name="section_descriptions[]" class="form-control section-desc" placeholder="Enter Section Description" required></textarea>
+                        </div>
+
+                        <div class="questions-list">
+                            <div class="card question-card mb-2">
+                                <div class="card-body d-flex align-items-start">
+                                    <div class="drag-handle me-2" style="cursor:grab;">&#9776;</div>
+                                    <div class="flex-fill">
+                                        <div class="mb-2">
+                                            <label>Question</label>
+                                            <input type="text" name="questions_new[${sectionIndex}][]" class="form-control question-input" placeholder="Enter Question" required>
+                                        </div>
+
+                                        <div class="mb-2">
+                                            <label>Type</label>
+                                            <select name="types_new[${sectionIndex}][]" class="form-control question-type">
+                                                <option value="text">Text</option>
+                                                <option value="radio">Radio</option>
+                                                <option value="checkbox">Checkbox</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="options-container d-none mt-2">
+                                            <label>Options</label>
+                                            <div class="options-list">
+                                                <div class="option-item d-flex align-items-center mb-2">
+                                                    <input type="text" name="options_new[${sectionIndex}][0][]" class="form-control me-2" placeholder="Enter Option">
+                                                    <button type="button" class="btn btn-danger btn-sm remove-option">Remove</button>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-secondary btn-sm add-option">Add Option</button>
+                                        </div>
+                                    </div>
+                                    <div class="ms-2">
+                                        <button type="button" class="btn btn-danger btn-sm remove-question">Remove</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-secondary btn-sm add-question">Add Another Question</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('sections-container').insertAdjacentHTML('beforeend', sectionTemplate);
+            // Attach change listener to newly inserted question-type so toggleOptions works
+            const container = document.getElementById('sections-container');
+            const newSec = container.querySelector('.section-card:last-child');
+            if (newSec) {
+                const newType = newSec.querySelector('.question-type');
+                if (newType) newType.addEventListener('change', function () { toggleOptions(this); });
+            }
+            sectionIndex++;
+        });
+    }
+
 });
 
 </script>
+
 </body>
 </html>

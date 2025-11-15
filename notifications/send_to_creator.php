@@ -9,13 +9,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+// accept form-encoded body or POST
 $input = file_get_contents('php://input');
 $data = [];
 parse_str($input, $data);
-$caseno = isset($data['caseno']) ? trim($data['caseno']) : (isset($_POST['caseno']) ? trim($_POST['caseno']) : '');
+$post = array_merge($_POST, $data);
 
-if ($caseno === '') {
-    echo json_encode(['status' => 'error', 'message' => 'No caseno provided']);
+// Prefer numeric/local id if provided, otherwise accept caseno (legacy)
+$caseId = isset($post['id']) && $post['id'] !== '' ? trim($post['id']) : null;
+$caseno = isset($post['caseno']) && $post['caseno'] !== '' ? trim($post['caseno']) : null;
+
+if (empty($caseId) && empty($caseno)) {
+    echo json_encode(['status' => 'error', 'message' => 'No case identifier provided']);
     exit;
 }
 
@@ -30,8 +35,13 @@ if ($role !== 'admin') {
 
 try {
     // fetch case and created_by
-    $q = $pdo->prepare('SELECT caseno, created_by FROM cases WHERE caseno = :caseno LIMIT 1');
-    $q->execute([':caseno' => $caseno]);
+    if (!empty($caseId) && is_numeric($caseId)) {
+        $q = $pdo->prepare('SELECT id, caseno, created_by FROM cases WHERE id = :id LIMIT 1');
+        $q->execute([':id' => $caseId]);
+    } else {
+        $q = $pdo->prepare('SELECT id, caseno, created_by FROM cases WHERE caseno = :caseno LIMIT 1');
+        $q->execute([':caseno' => $caseno]);
+    }
     $case = $q->fetch(PDO::FETCH_ASSOC);
     if (!$case) {
         echo json_encode(['status' => 'error', 'message' => 'Case not found']);
@@ -44,11 +54,11 @@ try {
         exit;
     }
 
-    // Build notification
+    // Build notification (use local id in link)
     $adminName = isset($_SESSION['loggedInUser']['fname']) ? trim($_SESSION['loggedInUser']['fname'] . ' ' . ($_SESSION['loggedInUser']['lname'] ?? '')) : 'Admin';
     $title = 'Admin read your case';
-    $message = "{$adminName} has marked case {$caseno} as read and may be taking action.";
-    $link = 'focal-person/case-details.php?id=' . urlencode($caseno);
+    $message = "{$adminName} has marked case {$case['caseno']} as read and may be taking action.";
+    $link = 'focal-person/case-details.php?id=' . urlencode($case['id']);
 
     // Avoid exact duplicate for same case+recipient
     $chk = $pdo->prepare('SELECT id FROM notifications WHERE recipient_role = :role AND recipient_id = :rid AND link = :link LIMIT 1');

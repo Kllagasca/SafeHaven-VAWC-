@@ -4,6 +4,42 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Ensure application uses Philippines timezone by default
+date_default_timezone_set('Asia/Manila');
+
+// Helper: consistently format datetimes in the application (Manila timezone)
+if (!function_exists('format_datetime')) {
+    function format_datetime($value, $format = 'F j, Y | g:i A') {
+        if (empty($value)) return '';
+        try {
+            // If it's already a DateTimeInterface, clone it and normalize
+            if ($value instanceof DateTimeInterface) {
+                $dt = new DateTime($value->format('Y-m-d H:i:s'));
+                $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+                return $dt->format($format);
+            }
+
+            $raw = trim((string)$value);
+
+            // If the string contains an explicit timezone (ISO Z or +hh:mm/-hh:mm) let DateTime parse it.
+            // Otherwise assume stored timestamps are in UTC and create DateTime with UTC timezone, then convert.
+            $hasTz = preg_match('/(?:Z$|[+-]\d{2}:?\d{2}$)/i', $raw);
+
+            if ($hasTz) {
+                $dt = new DateTime($raw);
+            } else {
+                // Treat naive timestamps as UTC (common when DB stores UTC without offset)
+                $dt = new DateTime($raw, new DateTimeZone('UTC'));
+            }
+
+            $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+            return $dt->format($format);
+        } catch (Exception $e) {
+            return $value;
+        }
+    }
+}
+
 require_once 'supabase_connect.php';
 
 

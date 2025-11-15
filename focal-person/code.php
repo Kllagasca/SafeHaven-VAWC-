@@ -79,6 +79,7 @@ if (isset($_POST['saveCase'])) {
     // include created_by (user id) so we can restrict visibility to owner + admin
     $createdBy = isset($_SESSION['loggedInUser']['id']) ? $_SESSION['loggedInUser']['id'] : (isset($_SESSION['user']['id']) ? $_SESSION['user']['id'] : null);
 
+    // Use RETURNING to capture the Supabase/Postgres generated id for this row
     $query = "INSERT INTO cases ( caseno, title, status, brgy, date, contactp,
                                       comp_name, comp_age, comp_num, comp_address,
                                       resp_name, resp_age, resp_num, resp_address,
@@ -86,7 +87,8 @@ if (isset($_POST['saveCase'])) {
                   VALUES ( :casenum, :title, :status, :barangay, :incident_date, :contactp,
                           :complainant, :cage, :cnum, :caddress,
                           :respondent, :rage, :rnum, :raddress,
-              :long_description, :image, :created_by)";
+              :long_description, :image, :created_by)
+                  RETURNING id";
 
         $stmt = $pdo->prepare($query);
         $stmt->execute([
@@ -109,43 +111,94 @@ if (isset($_POST['saveCase'])) {
             ':created_by'       => $createdBy
         ]);
 
+        // Fetch the returned Supabase/Postgres id when available
+        $supabaseId = null;
+        try {
+            $supabaseId = $stmt->fetchColumn();
+        } catch (Exception $e) {
+            try { $supabaseId = $pdo->lastInsertId(); } catch (Exception $__){ $supabaseId = null; }
+        }
+
         // save to localhost (MySQLi)
-        $insertQuery = "INSERT INTO `cases` (
-            `caseno`, `title`, `status`, `brgy`, `date`, `contactp`,
-            `comp_name`, `comp_age`, `comp_num`, `comp_address`,
-            `resp_name`, `resp_age`, `resp_num`, `resp_address`,
-            `long_description`, `image`, `created_by`
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        if ($finalImage === NULL) { $finalImage = ''; }
 
-        if ($finalImage === NULL) {
-            $finalImage = '';
+        // Check if local cases table has supabase_id column
+        $hasSupabaseId = false;
+        try {
+            $colCheck = mysqli_query($conn, "SHOW COLUMNS FROM `cases` LIKE 'supabase_id'");
+            if ($colCheck && mysqli_num_rows($colCheck) > 0) {
+                $hasSupabaseId = true;
+            }
+        } catch (Exception $__) {
+            $hasSupabaseId = false;
         }
 
-        $stmt2 = mysqli_prepare($conn, $insertQuery);
-        if (!$stmt2) {
-            die("Prepare failed: " . mysqli_error($conn) . "\nQuery: " . $insertQuery);
+        if ($hasSupabaseId) {
+            $insertQuery = "INSERT INTO `cases` (
+                `caseno`, `title`, `status`, `brgy`, `date`, `contactp`,
+                `comp_name`, `comp_age`, `comp_num`, `comp_address`,
+                `resp_name`, `resp_age`, `resp_num`, `resp_address`,
+                `long_description`, `image`, `created_by`, `supabase_id`, `supabase_id_created_at`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+            $supabaseIdVal = $supabaseId !== null ? (string)$supabaseId : null;
+            $supabaseIdCreated = $supabaseIdVal ? date('Y-m-d H:i:s') : null;
+
+            $stmt2 = mysqli_prepare($conn, $insertQuery);
+            if (!$stmt2) { die("Prepare failed: " . mysqli_error($conn) . "\nQuery: " . $insertQuery); }
+
+            mysqli_stmt_bind_param(
+                $stmt2,
+                "ssssssssssssssssisss",
+                $casenum, $title, $status, $barangay, $incident_date, $contactp,
+                $complainant, $cage, $cnum, $caddress,
+                $respondent, $rage, $rnum, $raddress,
+                $long_description, $finalImage, $createdBy, $supabaseIdVal, $supabaseIdCreated
+            );
+
+            // mysqli may fail for many reasons (unique constraint etc.) — log instead of die
+            if (!mysqli_stmt_execute($stmt2)) {
+                error_log('Local MySQL insert failed (focal-person with supabase_id): ' . mysqli_stmt_error($stmt2));
+            }
+            mysqli_stmt_close($stmt2);
+        } else {
+            // Fallback: insert without supabase_id
+            $insertQuery = "INSERT INTO `cases` (
+                `caseno`, `title`, `status`, `brgy`, `date`, `contactp`,
+                `comp_name`, `comp_age`, `comp_num`, `comp_address`,
+                `resp_name`, `resp_age`, `resp_num`, `resp_address`,
+                `long_description`, `image`, `created_by`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+            $stmt2 = mysqli_prepare($conn, $insertQuery);
+            if (!$stmt2) { die("Prepare failed: " . mysqli_error($conn) . "\nQuery: " . $insertQuery); }
+
+            mysqli_stmt_bind_param(
+                $stmt2,
+                "ssssssssssssssssi",
+                $casenum, $title, $status, $barangay, $incident_date, $contactp,
+                $complainant, $cage, $cnum, $caddress,
+                $respondent, $rage, $rnum, $raddress,
+                $long_description, $finalImage, $createdBy
+            );
+
+            if (!mysqli_stmt_execute($stmt2)) { die("Execute failed: " . mysqli_stmt_error($stmt2)); }
+            mysqli_stmt_close($stmt2);
         }
 
-        mysqli_stmt_bind_param(
-            $stmt2,
-            "ssssssssssssssssi",
-            $casenum, $title, $status, $barangay, $incident_date, $contactp,
-            $complainant, $cage, $cnum, $caddress,
-            $respondent, $rage, $rnum, $raddress,
-            $long_description, $finalImage, $createdBy
-        );
-
-        if (!mysqli_stmt_execute($stmt2)) {
-            die("Execute failed: " . mysqli_stmt_error($stmt2));
-        }
-
-        mysqli_stmt_close($stmt2);
+    // get local MySQL insert id to use as a stable, unique reference for links
+    $localCaseId = mysqli_insert_id($conn);
 
         // Create a notification for admins about the new case (best-effort; non-blocking)
         $creatorName = isset($_SESSION['loggedInUser']['fname']) ? trim($_SESSION['loggedInUser']['fname'] . ' ' . ($_SESSION['loggedInUser']['lname'] ?? '')) : 'Focal Person';
         $notificationTitle = 'New case submitted';
         $notificationMessage = "Case {$casenum} was created by {$creatorName} in {$barangay}.";
-        $notificationLink = 'admin/case-details.php?caseno=' . urlencode($casenum);
+        // Prefer linking by the local primary id to avoid ambiguity when caseno is not unique
+        if (!empty($localCaseId)) {
+            $notificationLink = 'admin/case-details.php?id=' . urlencode($localCaseId);
+        } else {
+            $notificationLink = 'admin/case-details.php?caseno=' . urlencode($casenum);
+        }
 
         // Insert into Supabase/PDO notifications table (if exists)
         try {
@@ -188,8 +241,146 @@ if (isset($_POST['saveCase'])) {
 
 
 if (isset($_POST['updateCase'])) {
-    // Copy update logic if needed; for now redirect back
-    redirect('cases.php', 'Update endpoint not implemented for focal-person');
+
+    $caseno = validate($_POST['caseno']);
+    $title = validate($_POST['title']);
+    $status = validate($_POST['status']);
+    $barangay = validate($_POST['barangay']);
+    $incident_date = validate($_POST['date']);
+    $contactp = validate($_POST['contactp']);
+
+    $complainant = validate($_POST['complainant']);
+    $cage = validate($_POST['cage']);
+    $cnum = validate($_POST['cnum']);
+    $caddress = validate($_POST['caddress']);
+
+    $respondent = validate($_POST['respondent']);
+    $rage = validate($_POST['rage']);
+    $rnum = validate($_POST['rnum']);
+    $raddress = validate($_POST['raddress']);
+
+    $long_description = strip_tags(validate($_POST['long_description']));
+    $finalImage = validate($_POST['old_image']);
+
+    // Handle image upload
+    if (isset($_FILES['image']) && $_FILES['image']['size'] > 0) {
+        $imageFile = $_FILES['image'];
+        $allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $imageFile['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mimeType, $allowedTypes)) {
+            redirect('case-edit.php?caseno=' . $caseno, 'Only JPG, JPEG, PNG images are allowed');
+        }
+
+        if ($imageFile['error'] !== UPLOAD_ERR_OK) {
+            redirect('cases.php', 'File upload error: ' . $imageFile['error']);
+        }
+
+        $uploadDir = __DIR__ . '/../assets/uploads/cases/';
+        if (!is_dir($uploadDir)) { mkdir($uploadDir, 0755, true); }
+        if (!is_writable($uploadDir)) { redirect('cases.php', 'Upload directory is not writable'); }
+
+        $ext = strtolower(pathinfo($imageFile['name'], PATHINFO_EXTENSION));
+        $newFileName = time() . '_' . uniqid() . '.' . $ext;
+        $destination = $uploadDir . $newFileName;
+
+        if (!move_uploaded_file($imageFile['tmp_name'], $destination)) {
+            redirect('cases.php', 'Failed to move uploaded file');
+        }
+
+        // Delete old image if exists
+        if (!empty($finalImage) && file_exists(__DIR__ . '/../' . $finalImage)) {
+            @unlink(__DIR__ . '/../' . $finalImage);
+        }
+
+        $finalImage = 'assets/uploads/cases/' . $newFileName;
+    }
+
+    if ($finalImage === NULL) { $finalImage = ''; }
+
+    try {
+        // --- Update Supabase (PDO) ---
+        $query = "UPDATE cases SET 
+            title = :title,
+            status = :status,
+            brgy = :barangay,
+            date = :incident_date,
+            contactp = :contactp,
+            comp_name = :complainant,
+            comp_age = :cage,
+            comp_num = :cnum,
+            comp_address = :caddress,
+            resp_name = :respondent,
+            resp_age = :rage,
+            resp_num = :rnum,
+            resp_address = :raddress,
+            long_description = :long_description,
+            image = :image
+        WHERE caseno = :caseno";
+
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([
+            ':title'            => $title,
+            ':status'           => $status,
+            ':barangay'         => $barangay,
+            ':incident_date'    => $incident_date,
+            ':contactp'         => $contactp,
+            ':complainant'      => $complainant,
+            ':cage'             => $cage,
+            ':cnum'             => $cnum,
+            ':caddress'         => $caddress,
+            ':respondent'       => $respondent,
+            ':rage'             => $rage,
+            ':rnum'             => $rnum,
+            ':raddress'         => $raddress,
+            ':long_description' => $long_description,
+            ':image'            => $finalImage,
+            ':caseno'           => $caseno
+        ]);
+
+        // --- Update XAMPP (MySQLi) ---
+        $updateQuery = "UPDATE `cases` SET
+            `title` = ?,
+            `status` = ?,
+            `brgy` = ?,
+            `date` = ?,
+            `contactp` = ?,
+            `comp_name` = ?,
+            `comp_age` = ?,
+            `comp_num` = ?,
+            `comp_address` = ?,
+            `resp_name` = ?,
+            `resp_age` = ?,
+            `resp_num` = ?,
+            `resp_address` = ?,
+            `long_description` = ?,
+            `image` = ?
+        WHERE `caseno` = ?";
+
+        $stmt2 = mysqli_prepare($conn, $updateQuery);
+        if (!$stmt2) { die("Prepare failed: " . mysqli_error($conn)); }
+
+        mysqli_stmt_bind_param(
+            $stmt2,
+            "ssssssssssssssss",
+            $title, $status, $barangay, $incident_date, $contactp,
+            $complainant, $cage, $cnum, $caddress,
+            $respondent, $rage, $rnum, $raddress,
+            $long_description, $finalImage, $caseno
+        );
+
+        if (!mysqli_stmt_execute($stmt2)) { die("Execute failed: " . mysqli_stmt_error($stmt2)); }
+        mysqli_stmt_close($stmt2);
+
+        redirect('cases.php', 'Case Updated Successfully');
+
+    } catch (Exception $e) {
+        redirect('cases.php', 'Error: ' . $e->getMessage());
+    }
+
 }
 
 ?>

@@ -62,7 +62,7 @@
                     <div class="col-md-4">
                     <div class="mb-3">
                         <label for="barangay">Incident Location</label>
-                        <select name="barangay" id="barangay" class="form-select" required>
+                        <select name="barangay" id="barangay" class="form-select barangay-select" required>
                         <option value="">Select Barangay (Incident Location)</option>
                         <option value="I-A (Sambat)">I-A (Sambat)</option>
                             <option value="I-B (City Sub Riverside)">I-B (City Sub Riverside)</option>
@@ -247,5 +247,77 @@
         </div>
     </div>
 </div>
+
+<!-- Add Select2 (searchable dropdown) so the barangay choices render nicely and open downward inside the card -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    function initSelect2() {
+        if (typeof jQuery === 'undefined') return;
+        // load Select2 CSS if not present
+        if (!document.querySelector('link[href*="select2.min.css"]')) {
+            var link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css';
+            document.head.appendChild(link);
+        }
+        // load Select2 JS if not present
+        if (typeof jQuery.fn.select2 === 'undefined') {
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js';
+            s.onload = function () {
+                jQuery('.barangay-select').each(function () {
+                    var $this = jQuery(this);
+                    var container = $this.closest('.col-md-4, .form-group, .card-body, .card') || $this.parent();
+                    $this.select2({
+                        placeholder: 'Select Barangay',
+                        width: '100%',
+                        dropdownParent: container // attach dropdown to closest container so it appears under the field
+                    });
+                });
+            };
+            document.body.appendChild(s);
+        } else {
+            jQuery('.barangay-select').each(function () {
+                var $this = jQuery(this);
+                var container = $this.closest('.col-md-4, .form-group, .card-body, .card') || $this.parent();
+                $this.select2({
+                    placeholder: 'Select Barangay',
+                    width: '100%',
+                    dropdownParent: container
+                });
+            });
+        }
+    }
+
+    // Ensure jQuery is available
+    if (typeof jQuery === 'undefined') {
+        var jq = document.createElement('script');
+        jq.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
+        jq.onload = initSelect2;
+        document.body.appendChild(jq);
+    } else {
+        initSelect2();
+    }
+});
+</script>
+
+<script>
+// Toggle the barangay list visibility when the button is clicked
+document.addEventListener('DOMContentLoaded', function () {
+    const toggleBtn = document.getElementById('toggle-barangay-list');
+    const list = document.getElementById('barangay-list');
+    if (toggleBtn && list) {
+        toggleBtn.addEventListener('click', function () {
+            if (list.style.display === 'none' || list.style.display === '') {
+                list.style.display = 'block';
+                toggleBtn.textContent = 'Hide barangay list';
+            } else {
+                list.style.display = 'none';
+                toggleBtn.textContent = 'Show barangay list';
+            }
+        });
+    }
+});
+</script>
 
 <?php include('includes/footer.php'); ?>

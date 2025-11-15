@@ -88,8 +88,21 @@ if ($services && count($services) > 0) {
 
                         <tr>
                             <td><?= htmlspecialchars($item['id']); ?></td>
-                            <td><?= htmlspecialchars($item['name']); ?></td>
-                            <td><?= htmlspecialchars($item['created_at']); ?></td>
+                            <td class="doc-title"><?= htmlspecialchars($item['name']); ?></td>
+                            <?php
+                                $created = '';
+                                if (!empty($item['created_at'])) {
+                                    try {
+                                        // Parse stored time and convert to Philippines timezone (Asia/Manila)
+                                        $dt = new DateTime($item['created_at']);
+                                        $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+                                        $created = $dt->format('F j, Y | g:i A');
+                                    } catch (Exception $e) {
+                                        $created = $item['created_at'];
+                                    }
+                                }
+                            ?>
+                            <td><?= htmlspecialchars($created); ?></td>
                             <td>
                                 <?php 
                                 if ($item['approval_status'] == 'pending') {
@@ -139,3 +152,14 @@ if ($services && count($services) > 0) {
 </div>
 
 <?php include('includes/footer.php'); ?>
+
+<style>
+    #myTable th, #myTable td {
+        white-space: nowrap; /* Prevent text wrapping */
+    }
+    #myTable .doc-title {
+        max-width: 200px; /* Adjust as per your needs */
+        white-space: normal; /* Allow text wrapping */
+        word-wrap: break-word; /* Break long words if necessary */
+    }
+</style>

@@ -23,6 +23,7 @@ $surveys = mysqli_query($conn, "SELECT * FROM surveys");
                     <th>Survey ID</th>
                     <th>Survey Name</th>
                     <th>Questions</th>
+                    <th>Pending Responses</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -48,6 +49,21 @@ $surveys = mysqli_query($conn, "SELECT * FROM surveys");
                             }
                             echo $total_questions . " questions";
                         ?>
+                    </td>
+                    <td class="text-center">
+                        <?php
+                            // count pending verifications for this survey
+                            $s_id = intval($row['id']);
+                            $pending_q = "SELECT COUNT(*) as pending_count FROM survey_verifications WHERE survey_id = $s_id AND status = 'pending'";
+                            $pending_r = mysqli_query($conn, $pending_q);
+                            $pending_count = 0;
+                            if ($pending_r) {
+                                $pc = mysqli_fetch_assoc($pending_r);
+                                $pending_count = (int)$pc['pending_count'];
+                            }
+                        ?>
+                        <span class="badge bg-warning text-dark me-2"><?php echo $pending_count; ?> pending</span>
+                        <a href="pending_responses.php?id=<?= $row['id']; ?>" class="btn btn-warning btn-sm">View Pending</a>
                     </td>
                     <td>
                         <a href="responses.php?id=<?= $row['id']; ?>" class="btn btn-primary btn-sm">View</a>

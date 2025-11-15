@@ -1,21 +1,27 @@
 <?php
 include('includes/header.php');
 
-// Get case ID from URL
-if (isset($_GET['id'])) {
-    $id = $_GET['id'];
+    // Get case identifier from URL. Prefer numeric local id, fallback to caseno string.
+    if (isset($_GET['id'])) {
+        $raw = $_GET['id'];
+        if (ctype_digit($raw)) {
+            $id = (int)$raw;
+            $stmt = $pdo->prepare("SELECT * FROM cases WHERE id = :id LIMIT 1");
+            $stmt->execute([':id' => $id]);
+            $item = $stmt->fetch(PDO::FETCH_ASSOC);
+        } else {
+            $caseno = $raw;
+            $stmt = $pdo->prepare("SELECT * FROM cases WHERE caseno = :caseno LIMIT 1");
+            $stmt->execute([':caseno' => $caseno]);
+            $item = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
 
-    // Prepare and execute query
-    $stmt = $pdo->prepare("SELECT * FROM cases WHERE caseno = ?");
-    $stmt->execute([$id]);
-    $item = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$item) {
-        die("Case not found.");
+        if (!$item) {
+            die("Case not found.");
+        }
+    } else {
+        die("No case ID provided.");
     }
-} else {
-    die("No case ID provided.");
-}
 
 // Authorization: allow only the case owner (created_by) or admin to view details
 $currentUserId = isset($_SESSION['loggedInUser']['id']) ? $_SESSION['loggedInUser']['id'] : (isset($_SESSION['user']['id']) ? $_SESSION['user']['id'] : null);
@@ -176,7 +182,39 @@ if (isset($_SESSION['brgy'])) {
             </h5>
 
             <div class="border rounded p-3 mt-2 text-dark font-weight-bold">
-                <p><?= nl2br(htmlspecialchars($item['long_description'] ?? 'N/A')); ?></p>
+                <?php
+                if (!empty($item['image'])) {
+                    $raw = trim($item['image']);
+
+                    if (preg_match('#^https?://#i', $raw)) {
+                        $imgUrl = htmlspecialchars($raw);
+                        echo "<a href=\"{$imgUrl}\" target=\"_blank\" rel=\"noopener noreferrer\">";
+                        echo "<img src=\"{$imgUrl}\" alt=\"Evidence\" style=\"max-height:120px; display:block; margin:auto;\" />";
+                        echo "</a>";
+                    } else {
+                        if (preg_match('#assets[\\/]+uploads[\\/]+(.+)#i', $raw, $m)) {
+                            $webRelative = 'assets/uploads/' . str_replace('\\', '/', $m[1]);
+                        } else {
+                            $webRelative = 'assets/uploads/cases/' . ltrim(str_replace('\\', '/', $raw), '/');
+                        }
+
+                        $imgUrl = htmlspecialchars('../' . $webRelative);
+                        $projectRoot = realpath(__DIR__ . '/..');
+                        if ($projectRoot === false) { $projectRoot = __DIR__ . '/..'; }
+                        $fileOnDisk = $projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $webRelative);
+
+                        if (file_exists($fileOnDisk)) {
+                            echo "<a href=\"{$imgUrl}\" target=\"_blank\" rel=\"noopener noreferrer\">";
+                            echo "<img src=\"{$imgUrl}\" alt=\"Evidence\" style=\"max-height:120px; display:block; margin:auto;\" />";
+                            echo "</a>";
+                        } else {
+                            echo "<p><a href=\"{$imgUrl}\" target=\"_blank\" rel=\"noopener noreferrer\">" . $imgUrl . "</a></p>";
+                        }
+                    }
+                } else {
+                    echo '<p>N/A</p>';
+                }
+                ?>
             </div>
             
             </div>

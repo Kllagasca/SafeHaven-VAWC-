@@ -3,10 +3,7 @@ require_once 'config/function.php';
 include 'config/db_connect.php';
 $pageTitle = 'My Surveys';
 
-// Require authentication
-if (!isset($_SESSION['auth']) || $_SESSION['auth'] !== true) {
-    redirect('login.php?next=' . urlencode('user-dashboard.php'), 'Please login to view available surveys');
-}
+// Previously this page required authentication; allow anonymous users to view available surveys
 
 // Fetch available surveys from the database
 $surveys = [];

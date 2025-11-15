@@ -7,6 +7,10 @@
         html {
             scrollbar-width: smooth;
         }
+
+                .bg-custom2 {
+            background: #7c2aa6;
+        }
 </style>
 <?php
 $pageTitle = "Posts";
@@ -78,7 +82,7 @@ try {
                     </div>
 
                     <p class="text-dark">
-                        <?= htmlspecialchars($rowData['long_description']); ?>
+                        <?= nl2br(htmlspecialchars(strip_tags($rowData['long_description']))); ?>
                     </p>
 
                     <div class="d-flex justify-content-end">
@@ -91,5 +95,7 @@ try {
         </div>
     </div>
 </div>
+
+
 
 <?php include('includes/footer.php'); ?>
